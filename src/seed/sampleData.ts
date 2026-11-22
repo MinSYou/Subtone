@@ -21,7 +21,7 @@ import {
 } from '../domain/types';
 
 /** Small deterministic PRNG so sample data (and the tests built on it) never change. */
-function mulberry32(seed: number) {
+export function mulberry32(seed: number) {
   let a = seed >>> 0;
   return () => {
     a = (a + 0x6d2b79f5) >>> 0;
@@ -142,4 +142,22 @@ export function generateSampleData(today: ISODate, opts: SampleOptions = {}): Fi
     contributions,
     settings: structuredClone(DEFAULT_SETTINGS),
   };
+}
+
+// ---- Profiles --------------------------------------------------------------------------
+
+export type SampleProfile = 'professional' | 'student';
+
+export const SAMPLE_PROFILES: { id: SampleProfile; label: string; emoji: string; blurb: string }[] = [
+  { id: 'student', label: 'University student', emoji: '🎓', blurb: 'Share house, casual job, campus food, Opal' },
+  { id: 'professional', label: 'Young professional', emoji: '💼', blurb: 'Salary, rent, subscriptions, car insurance' },
+];
+
+/** Sample data for a profile. The student generator lives in studentData.ts. */
+export async function sampleFor(profile: SampleProfile, today: ISODate, opts: SampleOptions = {}): Promise<FinanceSnapshot> {
+  if (profile === 'student') {
+    const { generateStudentData } = await import('./studentData');
+    return generateStudentData(today, opts);
+  }
+  return generateSampleData(today, opts);
 }

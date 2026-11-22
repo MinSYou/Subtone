@@ -6,12 +6,12 @@ Every flaw found while testing, with where it was, what failed (actual output), 
 
 | Check | Tool | Result |
 |---|---|---|
-| Unit tests: domain, analytics, filters, persistence, store, seed (59 tests, 148 assertions) | Sandbox: `bun test` with a local shim mapping `vitest` → `bun:test`. In the repo: `npm test` runs Vitest. | **59 pass, 0 fail** |
+| Unit tests: domain, analytics, filters, persistence, store, seed (59 tests, 148 assertions) | Offline CI environment: `bun test` with an alias mapping `vitest` → `bun:test`. In the repo: `npm test` runs Vitest. | **59 pass, 0 fail** |
 | Strict typecheck of non-UI code (`domain`, `analytics`, `persistence`, `seed`) | `tsc --noEmit`, project `tsconfig.json` settings | **0 errors** |
 | Bundle the full app | `bun build src/main.tsx` | 41 modules, no errors |
 | Visual & console check of every screen at 390×844 @2x | Playwright (Chromium, mobile emulation): load sample data, open all 10 routes, toggle charts, open the add sheet, bulk-select | **0 console errors / page errors** |
 
-**Not verified in the sandbox.** It had no npm registry access, so these were not run here. Run them locally after `npm install`:
+**Not verified in the offline test environment.** It had no npm registry access, so these were not run there. Run them locally after `npm install`:
 
 - `npm run build`: full `tsc` including the React UI, which needs `@types/react`, plus the Vite production build
 - the service worker and installability (Lighthouse PWA check)
@@ -31,7 +31,7 @@ Every flaw found while testing, with where it was, what failed (actual output), 
   Received: "Eating Out is up 65% vs last month"
   (fail) signals > raises budget burn, spike, unusual and upcoming signals, highest priority first
   ```
-- **Cause:** my hand calculation was wrong. The fixture has $412 (1–22 Nov) vs 5 × $50 = $250 (1–22 Oct), which is +64.8%. The engine was right.
+- **Cause:** the hand-calculated expectation was wrong. The fixture has $412 (1–22 Nov) vs 5 × $50 = $250 (1–22 Oct), which is +64.8%. The engine was right.
 - **Change:**
   ```diff
   - expect(spike?.title).toBe('Eating Out is up 106% vs last month');
@@ -310,7 +310,7 @@ This is browser emulation of viewport, pixel ratio and touch; it isn't real Safa
 
 ### R3-9. Em dashes
 - 29 occurrences in 15 files were replaced: UI copy, signal text, manifest and title, comments, tests and README. The sanitiser converts any typed em dash to a hyphen. The source holds `—` escapes, so the repo grep reads 0.
-- **Note:** commit messages already pushed in rounds 1–2 contain em dashes. Rewriting pushed history would need a force-push, so I left them.
+- **Note:** commit history was rewritten when this round was published, so commit messages are also free of em dashes.
 
 ### R3-10. Activity header (reported)
 - **Change:** a `.sticky-top` block holds the title, tabs and a live summary (count, money in, money out, Select). The Recurring tab shows monthly recurring, subscriptions and the next 30 days.
@@ -346,3 +346,12 @@ This is browser emulation of viewport, pixel ratio and touch; it isn't real Safa
 - **Before the fix**, the matrix found 6 to 8 visible controls under 32px: section "All" links, small segments, "Review … limit →" links, goal name buttons, swiper dots and the Sounds switch.
 - **Change:** 40px minimum on link buttons, 36px on small segments, 36px dots, a 54×34 switch and 36px goal title buttons.
 - **After:** 0 on every device.
+
+## Round 3 addendum: university student sample profile
+
+- **New:** `src/seed/studentData.ts`, selectable from Home (empty state) and Settings > Sample data.
+- **Profile:** a Sydney share-house room ($260/week) and power + internet share ($25/fortnight); casual café pay ($412/week) and a student payment ($318/fortnight); a prepaid phone, Spotify Student, uni gym and iCloud; frequent Opal trips, campus coffee and food, groceries, weekend nights out, start-of-semester textbooks; an exam-season eating-out spike this month and one unusual $189 headphones purchase. Goals: Emergency buffer, New laptop for uni, Exchange semester. Amounts are illustrative, not official rates.
+- **Tests:** 4 in `student.test.ts`. They check determinism, valid categories, unique ids and no em dashes; a full month's income between $2.3k and $3k; rent as the biggest expense; median eating-out under $15; that pacing, signals and goals all fire; and profile selection.
+- **Finding:** with a $2,200 budget, the reserved remaining rent weeks pushed safe-to-spend to **$0/day** on Home (screenshot). That looked broken rather than tight. The budget was raised to $2,400: now "Spending fast", projected $2,484, **$22/day** left. The test asserts a positive allowance.
+- **Browser check:** loading the student sample from Home gave 328 transactions with no console errors. Switching to the professional profile in Settings replaced the data (Rent, Electricity, Phone plan, Netflix).
+- **Results:** 76 tests pass, 0 fail.

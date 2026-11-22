@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import type { ChartStyle } from '../../domain/types';
 import { backupFileName, BackupError, createBackup, parseBackup, transactionsToCsv } from '../../persistence/backup';
+import { SAMPLE_PROFILES, type SampleProfile } from '../../seed/sampleData';
 import { Icon } from '../components/Icon';
 import { Select } from '../components/pickers';
 import { useStore, useStoreState } from '../context';
@@ -127,6 +128,7 @@ export function Settings() {
   const store = useStore();
   const { data } = useStoreState();
   const fileRef = useRef<HTMLInputElement>(null);
+  const [profile, setProfile] = useState<SampleProfile>('student');
   const [status, setStatus] = useState<{ tone: 'good' | 'warn'; text: string; details?: string[] } | null>(null);
   const counts = `${data.transactions.length} transactions · ${data.recurring.length} recurring · ${data.goals.length} goals`;
 
@@ -240,10 +242,22 @@ export function Settings() {
           <span>Storage</span>
           <span className="muted">This device ({store.repositoryKind})</span>
         </div>
+        <div className="setting-row">
+          <span>Sample data</span>
+          <div className="field">
+            <Select label="Sample profile" value={profile} onChange={setProfile} options={SAMPLE_PROFILES.map((p) => ({ value: p.id, label: `${p.emoji} ${p.label}` }))} />
+          </div>
+        </div>
+        <span className="muted small">{SAMPLE_PROFILES.find((p) => p.id === profile)?.blurb}</span>
         <button
           className="btn ghost block"
           onClick={() => {
-            if (data.transactions.length === 0 || window.confirm('Replace your data with sample data? Back up first if you want to keep it.')) void store.loadSample();
+            if (data.transactions.length === 0 || window.confirm('Replace your data with sample data? Back up first if you want to keep it.')) {
+              void store.loadSample(profile).then(() => {
+                play('success');
+                setStatus({ tone: 'good', text: `Loaded the ${SAMPLE_PROFILES.find((p) => p.id === profile)?.label.toLowerCase()} sample.` });
+              });
+            }
           }}
         >
           Load sample data

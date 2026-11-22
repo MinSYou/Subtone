@@ -15,7 +15,7 @@ import {
 } from '../domain/types';
 import { LIMITS, parseTags, sanitizeLine, sanitizeMultiline, sanitizeTag } from '../domain/validation';
 import { diffSnapshots, isEmptyChangeSet, type FinanceRepository } from '../persistence/repository';
-import { generateSampleData } from '../seed/sampleData';
+import { sampleFor, type SampleProfile } from '../seed/sampleData';
 
 export interface StoreState {
   status: 'loading' | 'ready';
@@ -101,7 +101,7 @@ export class FinanceStore {
     this.set({ data: snapshot, error: null, unsaved: false });
   }
 
-  loadSample = () => this.replaceAll(generateSampleData(this.clock.today()));
+  loadSample = async (profile: SampleProfile = 'professional') => this.replaceAll(await sampleFor(profile, this.clock.today()));
   clearAll = () => this.replaceAll(emptySnapshot(structuredClone(DEFAULT_CATEGORIES)));
 
   // ---- transactions ----

@@ -1,5 +1,6 @@
 import { PACE_LABEL } from '../../analytics';
 import { formatMonthLong } from '../../domain/dates';
+import { SAMPLE_PROFILES } from '../../seed/sampleData';
 import { Empty, MonthSwitcher, PaceBar, TxnRow } from '../components/common';
 import { PaceMascot } from '../components/PaceMascot';
 import { Icon } from '../components/Icon';
@@ -40,13 +41,16 @@ export function Home({ navigate, onAdd, onEdit }: { navigate: (r: string) => voi
 
       {data.transactions.length === 0 ? (
         <Empty title="👋 Start tracking" body="Add a transaction or try sample data. Stays on this device.">
+          <button className="btn primary" onClick={onAdd}>
+            Add transaction
+          </button>
+          <span className="muted small">or explore with sample data</span>
           <div className="row wrap" style={{ justifyContent: 'center' }}>
-            <button className="btn primary" onClick={onAdd}>
-              Add transaction
-            </button>
-            <button className="btn ghost" onClick={() => void store.loadSample()}>
-              Load sample data
-            </button>
+            {SAMPLE_PROFILES.map((p) => (
+              <button key={p.id} className="btn ghost" onClick={() => void store.loadSample(p.id)} aria-label={`Load sample data: ${p.label}`}>
+                {p.emoji} {p.label}
+              </button>
+            ))}
           </div>
         </Empty>
       ) : (
