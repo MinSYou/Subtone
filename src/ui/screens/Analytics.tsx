@@ -4,17 +4,18 @@ import { trimLeadingEmpty } from '../../analytics';
 import { CompositionStrip, Donut, IncomeSpendBars, IncomeSpendLines } from '../components/charts';
 import { CategoryDot, Empty, MonthSwitcher, Segmented, SignalCard } from '../components/common';
 import { Icon } from '../components/Icon';
-import { useDashboard, useMoney, useMonth, useStore, useStoreState } from '../context';
+import { StatementView } from './Statement';
+import { useDashboard, useMoney, useMonth, useStoreState } from '../context';
 
-type Sub = 'breakdown' | 'trends' | 'signals';
+type Sub = 'breakdown' | 'trends' | 'signals' | 'statement';
 
 export function Analytics({ sub, navigate }: { sub: string; navigate: (r: string) => void }) {
-  const current = (['breakdown', 'trends', 'signals'].includes(sub) ? sub : 'breakdown') as Sub;
+  const current = (['breakdown', 'trends', 'signals', 'statement'].includes(sub) ? sub : 'breakdown') as Sub;
   return (
     <div className="screen">
       <header className="screen-head">
         <h1>Analytics</h1>
-        <MonthSwitcher />
+        {current !== 'statement' && <MonthSwitcher />}
       </header>
       <Segmented
         label="Analytics view"
@@ -24,11 +25,13 @@ export function Analytics({ sub, navigate }: { sub: string; navigate: (r: string
           { value: 'breakdown', label: 'Breakdown' },
           { value: 'trends', label: 'Trends' },
           { value: 'signals', label: 'Signals' },
+          { value: 'statement', label: 'Statement' },
         ]}
       />
       {current === 'breakdown' && <Breakdown />}
       {current === 'trends' && <Trends />}
       {current === 'signals' && <Signals navigate={navigate} />}
+      {current === 'statement' && <StatementView />}
     </div>
   );
 }
@@ -37,10 +40,10 @@ function Breakdown() {
   const [month] = useMonth();
   const d = useDashboard(month);
   const money = useMoney();
-  const store = useStore();
   const { data } = useStoreState();
   const [side, setSide] = useState<'expense' | 'income'>('expense');
-  const chart = data.settings.chartPrefs.breakdown;
+  // Pie suits single-period composition; line has no meaning here, so it shows bars.
+  const chart = data.settings.chartStyle === 'pie' ? 'donut' : 'bar';
   const items = side === 'expense' ? d.summary.expenseByCategory : d.summary.incomeByCategory;
   const total = side === 'expense' ? d.summary.expenseCents : d.summary.incomeCents;
 
@@ -57,16 +60,7 @@ function Breakdown() {
             { value: 'income', label: 'Income' },
           ]}
         />
-        <Segmented
-          small
-          label="Chart type"
-          value={chart}
-          onChange={(v) => store.updateSettings({ chartPrefs: { ...data.settings.chartPrefs, breakdown: v } })}
-          options={[
-            { value: 'bar', label: 'Bar' },
-            { value: 'donut', label: 'Donut' },
-          ]}
-        />
+        <ChartStyleLink />
       </div>
       {items.length === 0 ? (
         <Empty title={`No ${side === 'expense' ? 'spending' : 'income'} in ${formatMonthLong(month)}`} body="Pick another month or add a transaction." />
@@ -124,9 +118,9 @@ function Trends() {
   const [month] = useMonth();
   const d = useDashboard(month);
   const money = useMoney();
-  const store = useStore();
   const { data } = useStoreState();
-  const chart = data.settings.chartPrefs.trends;
+  // Time series: line or bars (a pie preference falls back to bars).
+  const chart = data.settings.chartStyle === 'line' ? 'line' : 'bar';
   const { overall, clock } = d.pacing;
   const series = trimLeadingEmpty(d.series);
   const projected = clock.isCurrent ? { index: series.length - 1, expenseCents: overall.projectedCents } : null;
@@ -140,16 +134,7 @@ function Trends() {
             <span style={{ ['--c' as string]: '#5FB8AE' }}>Income</span>
             <span style={{ ['--c' as string]: '#3346D3' }}>Spent</span>
           </div>
-          <Segmented
-            small
-            label="Chart type"
-            value={chart}
-            onChange={(v) => store.updateSettings({ chartPrefs: { ...data.settings.chartPrefs, trends: v } })}
-            options={[
-              { value: 'bar', label: 'Bar' },
-              { value: 'line', label: 'Line' },
-            ]}
-          />
+          <ChartStyleLink />
         </div>
         {chart === 'line' ? (
           <IncomeSpendLines series={series} budgetCents={overall.limitCents} projected={projected} format={fmt} />
@@ -217,5 +202,16 @@ function Signals({ navigate }: { navigate: (r: string) => void }) {
         Signals are computed on this device from your own records. Nothing is sent anywhere.
       </p>
     </>
+  );
+}
+
+/** Chart style is chosen in Settings; this shows the current one and links there. */
+function ChartStyleLink() {
+  const { data } = useStoreState();
+  const label = { bar: 'Bar', pie: 'Pie', line: 'Line' }[data.settings.chartStyle];
+  return (
+    <a className="chip" href="#/settings" aria-label={`Chart style ${label}. Change in Settings`}>
+      <Icon name="chart" size={14} /> {label}
+    </a>
   );
 }

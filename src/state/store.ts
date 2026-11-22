@@ -13,6 +13,7 @@ import {
   type Settings,
   type Transaction,
 } from '../domain/types';
+import { LIMITS, parseTags, sanitizeLine, sanitizeMultiline, sanitizeTag } from '../domain/validation';
 import { diffSnapshots, isEmptyChangeSet, type FinanceRepository } from '../persistence/repository';
 import { generateSampleData } from '../seed/sampleData';
 
@@ -106,7 +107,7 @@ export class FinanceStore {
   // ---- transactions ----
   addTransaction(input: TransactionInput): Transaction {
     const ts = this.now();
-    const t: Transaction = { ...input, tags: dedupeTags(input.tags), id: this.newId('txn'), createdAt: ts, updatedAt: ts };
+    const t: Transaction = { ...clean(input), id: this.newId('txn'), createdAt: ts, updatedAt: ts };
     this.commit((d) => ({ ...d, transactions: [...d.transactions, t] }));
     return t;
   }
@@ -115,15 +116,23 @@ export class FinanceStore {
     const ts = this.now();
     this.commit((d) => ({
       ...d,
-      transactions: d.transactions.map((t) =>
-        t.id === id ? { ...t, ...patch, tags: dedupeTags(patch.tags ?? t.tags), updatedAt: ts } : t,
-      ),
+      transactions: d.transactions.map((t) => (t.id === id ? { ...t, ...clean({ ...t, ...patch }), updatedAt: ts } : t)),
     }));
   }
 
-  deleteTransactions(ids: Id[]): void {
+  /** Delete and return what was removed, so the UI can offer Undo. */
+  deleteTransactions(ids: Id[]): Transaction[] {
     const set = new Set(ids);
+    const removed = this.state.data.transactions.filter((t) => set.has(t.id));
     this.commit((d) => ({ ...d, transactions: d.transactions.filter((t) => !set.has(t.id)) }));
+    return removed;
+  }
+
+  /** Put previously deleted transactions back (Undo). */
+  restoreTransactions(txns: Transaction[]): void {
+    const existing = new Set(this.state.data.transactions.map((t) => t.id));
+    const back = txns.filter((t) => !existing.has(t.id));
+    if (back.length) this.commit((d) => ({ ...d, transactions: [...d.transactions, ...back] }));
   }
 
   bulkUpdate(ids: Id[], patch: BulkPatch): void {
@@ -134,7 +143,8 @@ export class FinanceStore {
       transactions: d.transactions.map((t) => {
         if (!set.has(t.id)) return t;
         let tags = t.tags;
-        if (patch.addTag) tags = dedupeTags([...tags, patch.addTag]);
+        const add = patch.addTag ? sanitizeTag(patch.addTag) : '';
+        if (add && tags.length < LIMITS.tagsPerTransaction) tags = dedupeTags([...tags, add]);
         if (patch.removeTag) tags = tags.filter((x) => x !== patch.removeTag);
         const categoryId = patch.categoryId ?? t.categoryId;
         if (categoryId === t.categoryId && tags === t.tags) return t;
@@ -145,7 +155,7 @@ export class FinanceStore {
 
   // ---- recurring ----
   saveRecurring(item: Omit<RecurringItem, 'id'> & { id?: Id }): RecurringItem {
-    const full: RecurringItem = { ...item, id: item.id ?? this.newId('rec') };
+    const full: RecurringItem = { ...item, title: sanitizeLine(item.title, LIMITS.title).value || 'Recurring', id: item.id ?? this.newId('rec') };
     this.commit((d) => ({ ...d, recurring: upsert(d.recurring, full) }));
     return full;
   }
@@ -159,10 +169,10 @@ export class FinanceStore {
   }
 
   /** Record a due occurrence as a real transaction linked to its recurring item. */
-  markRecurringPaid(id: Id, date: ISODate): void {
+  markRecurringPaid(id: Id, date: ISODate): Transaction | null {
     const r = this.state.data.recurring.find((x) => x.id === id);
-    if (!r) return;
-    this.addTransaction({ type: r.type, title: r.title, amountCents: r.amountCents, date, categoryId: r.categoryId, tags: [], recurringId: r.id });
+    if (!r) return null;
+    return this.addTransaction({ type: r.type, title: r.title, amountCents: r.amountCents, date, categoryId: r.categoryId, tags: [], recurringId: r.id });
   }
 
   // ---- budgets ----
@@ -179,12 +189,21 @@ export class FinanceStore {
 
   // ---- goals ----
   saveGoal(goal: Omit<SavingsGoal, 'id' | 'createdAt'> & { id?: Id; createdAt?: string }): void {
-    const full: SavingsGoal = { ...goal, id: goal.id ?? this.newId('goal'), createdAt: goal.createdAt ?? this.now() };
+    const full: SavingsGoal = { ...goal, name: sanitizeLine(goal.name, LIMITS.name).value || 'Goal', id: goal.id ?? this.newId('goal'), createdAt: goal.createdAt ?? this.now() };
     this.commit((d) => ({ ...d, goals: upsert(d.goals, full) }));
   }
 
-  deleteGoal(id: Id): void {
+  deleteGoal(id: Id): { goal: SavingsGoal; contributions: GoalContribution[] } | null {
+    const goal = this.state.data.goals.find((g) => g.id === id);
+    if (!goal) return null;
+    const contributions = this.state.data.contributions.filter((c) => c.goalId === id);
     this.commit((d) => ({ ...d, goals: d.goals.filter((g) => g.id !== id), contributions: d.contributions.filter((c) => c.goalId !== id) }));
+    return { goal, contributions };
+  }
+
+  restoreGoal(removed: { goal: SavingsGoal; contributions: GoalContribution[] } | null): void {
+    if (!removed) return;
+    this.commit((d) => ({ ...d, goals: upsert(d.goals, removed.goal), contributions: [...d.contributions.filter((c) => c.goalId !== removed.goal.id), ...removed.contributions] }));
   }
 
   /** Positive = set aside into the goal; negative = withdraw. */
@@ -196,7 +215,7 @@ export class FinanceStore {
 
   // ---- settings ----
   updateSettings(patch: Partial<Settings>): void {
-    this.commit((d) => ({ ...d, settings: { ...d.settings, ...patch, chartPrefs: { ...d.settings.chartPrefs, ...patch.chartPrefs } } }));
+    this.commit((d) => ({ ...d, settings: { ...d.settings, ...patch } }));
   }
 }
 
@@ -205,7 +224,13 @@ function upsert<T extends { id: Id }>(list: T[], item: T): T[] {
 }
 
 function dedupeTags(tags: string[]): string[] {
-  return [...new Set(tags.map((t) => t.trim().toLowerCase()).filter(Boolean))];
+  return [...new Set(tags.map(sanitizeTag).filter(Boolean))].slice(0, LIMITS.tagsPerTransaction);
+}
+
+/** Defence in depth: the same limits the form shows are enforced on every write. */
+function clean<T extends Pick<Transaction, 'title' | 'tags'> & { notes?: string }>(t: T): T {
+  const notes = t.notes === undefined ? undefined : sanitizeMultiline(t.notes, LIMITS.notes).value || undefined;
+  return { ...t, title: sanitizeLine(t.title, LIMITS.title).value, tags: parseTags(t.tags.join(',')).tags, notes };
 }
 
 function message(err: unknown): string {

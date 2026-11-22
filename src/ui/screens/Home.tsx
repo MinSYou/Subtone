@@ -1,6 +1,7 @@
 import { PACE_LABEL } from '../../analytics';
 import { formatMonthLong } from '../../domain/dates';
-import { Empty, MonthSwitcher, PaceBadge, PaceBar, TxnRow } from '../components/common';
+import { Empty, MonthSwitcher, PaceBar, TxnRow } from '../components/common';
+import { PaceMascot } from '../components/PaceMascot';
 import { Icon } from '../components/Icon';
 import { insightEmoji, useCountUp } from '../components/visual';
 import { useDashboard, useMoney, useMonth, useStore, useStoreState } from '../context';
@@ -78,31 +79,34 @@ export function Home({ navigate, onAdd, onEdit }: { navigate: (r: string) => voi
             </div>
           </section>
 
-          <a href="#/plan/budgets" className="card stack" style={{ textDecoration: 'none', color: 'inherit', gap: 10 }} aria-label={`Budget pace: ${PACE_LABEL[overall.status]}. Open budgets.`}>
-            <div className="row between">
-              <strong style={{ fontSize: 15 }}>Budget pace</strong>
-              <PaceBadge status={overall.status} />
-            </div>
-            {overall.limitCents === null ? (
-              <div className="pills">
-                <span className="pill">➕ Set a monthly budget</span>
+          <a href="#/plan/budgets" className="card pace-card" style={{ textDecoration: 'none', color: 'inherit' }} aria-label={`Budget pace: ${PACE_LABEL[overall.status]}. Open budgets.`}>
+            <PaceMascot status={overall.status} size={68} />
+            <div className="stack" style={{ gap: 8, minWidth: 0 }}>
+              <div className="row between">
+                <strong style={{ fontSize: 15 }}>Budget pace</strong>
+                <span className={`pace-status ${overall.status}`}>{PACE_LABEL[overall.status]}</span>
               </div>
-            ) : (
-              <>
-                <PaceBar pace={overall} large />
-                <div className="pills num">
-                  {clock.isCurrent && overall.safePerDayCents !== null && (
-                    <span className="pill strong" title="Safe to spend per day, bills already reserved">
-                      {w(overall.safePerDayCents)}/day left
-                    </span>
-                  )}
-                  {clock.isCurrent && <span className="pill">⏳ {clock.daysLeft}d left</span>}
-                  <span className="pill">
-                    {w(overall.spentCents)} <span className="k">/ {w(overall.limitCents)}</span>
-                  </span>
+              {overall.limitCents === null ? (
+                <div className="pills">
+                  <span className="pill">➕ Set a monthly budget</span>
                 </div>
-              </>
-            )}
+              ) : (
+                <>
+                  <PaceBar pace={overall} large />
+                  <div className="pills num">
+                    {clock.isCurrent && overall.safePerDayCents !== null && (
+                      <span className="pill strong" title="Safe to spend per day, bills already reserved">
+                        {w(overall.safePerDayCents)}/day left
+                      </span>
+                    )}
+                    {clock.isCurrent && <span className="pill">⏳ {clock.daysLeft}d left</span>}
+                    <span className="pill">
+                      {w(overall.spentCents)} <span className="k">/ {w(overall.limitCents)}</span>
+                    </span>
+                  </div>
+                </>
+              )}
+            </div>
           </a>
 
           {d.signals.length > 0 && (

@@ -1,4 +1,4 @@
-/* Subtone service worker — offline app shell. Same-origin GET requests only; no data leaves the device. */
+/* Subtone service worker: offline app shell. Same-origin GET requests only; no data leaves the device. */
 const VERSION = 'subtone-v1';
 const SHELL = ['/', '/index.html', '/manifest.webmanifest', '/icons/icon-192.png', '/icons/icon-512.png', '/icons/apple-touch-icon.png'];
 

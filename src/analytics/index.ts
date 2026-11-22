@@ -39,3 +39,4 @@ export function buildDashboard(snapshot: FinanceSnapshot, month: MonthKey, today
 
 export type Dashboard = ReturnType<typeof buildDashboard>;
 export * from './filters';
+export * from './statement';

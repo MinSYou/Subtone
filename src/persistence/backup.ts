@@ -107,12 +107,7 @@ export function parseSnapshot(raw: unknown): FinanceSnapshot {
   if (problems.length) {
     throw new BackupError(`Backup failed validation (${problems.length} problem${problems.length > 1 ? 's' : ''}).`, problems.slice(0, 20));
   }
-  const settingsRaw = (obj.settings ?? {}) as Partial<Settings>;
-  const settings: Settings = {
-    ...DEFAULT_SETTINGS,
-    ...settingsRaw,
-    chartPrefs: { ...DEFAULT_SETTINGS.chartPrefs, ...(settingsRaw.chartPrefs ?? {}) },
-  };
+  const settings = migrateSettings(obj.settings);
   // Normalise optional nulls and missing tags written by older versions.
   const snapshot = { ...(out as unknown as FinanceSnapshot), settings };
   snapshot.transactions = snapshot.transactions.map((t) => ({ ...t, tags: t.tags ?? [] }));
@@ -134,6 +129,32 @@ export function parseBackup(text: string): FinanceSnapshot {
     throw new BackupError(`Backup version ${String(env.schemaVersion)} is newer than this app supports (${BACKUP_SCHEMA_VERSION}).`);
   }
   return parseSnapshot(env.data);
+}
+
+/**
+ * Accept settings from any version: unknown keys are dropped, missing keys get defaults, and the
+ * v0.1 `chartPrefs` object maps to the single `chartStyle` (a donut breakdown becomes "pie").
+ */
+export function migrateSettings(raw: unknown): Settings {
+  const r = (raw && typeof raw === 'object' ? raw : {}) as Record<string, unknown>;
+  const legacy = r.chartPrefs as { trends?: string; breakdown?: string } | undefined;
+  const chartStyle =
+    r.chartStyle === 'bar' || r.chartStyle === 'pie' || r.chartStyle === 'line'
+      ? r.chartStyle
+      : legacy?.breakdown === 'donut'
+        ? 'pie'
+        : legacy?.trends === 'line'
+          ? 'line'
+          : DEFAULT_SETTINGS.chartStyle;
+  const str = (k: string, d: string) => (typeof r[k] === 'string' && (r[k] as string).length <= 16 ? (r[k] as string) : d);
+  return {
+    currency: str('currency', DEFAULT_SETTINGS.currency),
+    locale: str('locale', DEFAULT_SETTINGS.locale),
+    language: str('language', DEFAULT_SETTINGS.language),
+    chartStyle,
+    sounds: typeof r.sounds === 'boolean' ? r.sounds : DEFAULT_SETTINGS.sounds,
+    upcomingWindowDays: Number.isInteger(r.upcomingWindowDays) ? (r.upcomingWindowDays as number) : DEFAULT_SETTINGS.upcomingWindowDays,
+  };
 }
 
 // ---- CSV ------------------------------------------------------------------------------

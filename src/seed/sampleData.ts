@@ -64,7 +64,6 @@ export function generateSampleData(today: ISODate, opts: SampleOptions = {}): Fi
     { id: id('rec'), title: 'Phone plan', kind: 'bill', type: 'expense', amountCents: 45_00, categoryId: 'utilities', cadence: 'monthly', anchorDate: anchorDay(8), status: 'active' },
     { id: id('rec'), title: 'Netflix', kind: 'subscription', type: 'expense', amountCents: 18_99, categoryId: 'subscriptions', cadence: 'monthly', anchorDate: anchorDay(25), status: 'active' },
     { id: id('rec'), title: 'Spotify', kind: 'subscription', type: 'expense', amountCents: 14_99, categoryId: 'subscriptions', cadence: 'monthly', anchorDate: anchorDay(25), status: 'active' },
-    { id: id('rec'), title: 'Gym membership', kind: 'subscription', type: 'expense', amountCents: 34_00, categoryId: 'subscriptions', cadence: 'fortnightly', anchorDate: anchorDay(3), status: 'paused' },
     { id: id('rec'), title: 'Car insurance', kind: 'bill', type: 'expense', amountCents: 1140_00, categoryId: 'insurance', cadence: 'yearly', anchorDate: addMonths(anchorDay(18), 6), status: 'active' },
     { id: id('rec'), title: 'Salary', kind: 'income', type: 'income', amountCents: 2600_00, categoryId: 'salary', cadence: 'fortnightly', anchorDate: anchorDay(6), status: 'active' },
   ];

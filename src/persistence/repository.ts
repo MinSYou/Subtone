@@ -25,7 +25,7 @@ export interface FinanceRepository {
   load(): Promise<FinanceSnapshot | null>;
   /** Apply incremental changes (maps 1:1 to document writes in Firestore). */
   apply(changes: ChangeSet): Promise<void>;
-  /** Replace everything — used by restore-from-backup and "clear all data". */
+  /** Replace everything: used by restore-from-backup and "clear all data". */
   replaceAll(snapshot: FinanceSnapshot): Promise<void>;
 }
 

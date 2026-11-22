@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Icon } from './components/Icon';
-import { MonthProvider, routeHref, useRoute, useStore, useStoreState, type Tab } from './context';
+import { MonthProvider, routeHref, ToastProvider, useRoute, useStore, useStoreState, type Tab } from './context';
+import { play, setSoundsEnabled } from './sound';
 import { Activity } from './screens/Activity';
 import { Analytics } from './screens/Analytics';
 import { Home } from './screens/Home';
@@ -16,11 +17,19 @@ const NAV: { tab: Tab; label: string; icon: string }[] = [
 ];
 
 export function App() {
-  const { status, error, unsaved } = useStoreState();
+  const { status, error, unsaved, data } = useStoreState();
+  useEffect(() => setSoundsEnabled(data.settings.sounds), [data.settings.sounds]);
   const store = useStore();
   const [route, navigate] = useRoute();
   const [sheet, setSheet] = useState<{ editId: string | null } | null>(null);
-  const openEdit = (id: string) => setSheet({ editId: id });
+  const openEdit = (id: string) => {
+    play('open');
+    setSheet({ editId: id });
+  };
+  const openNew = () => {
+    play('open');
+    setSheet({ editId: null });
+  };
 
   // Deep link from a signal ("activity/transactions/<id>") opens that transaction.
   const deepLinkId = route.tab === 'activity' && route.sub === 'transactions' ? route.id : undefined;
@@ -46,6 +55,7 @@ export function App() {
 
   return (
     <MonthProvider>
+      <ToastProvider>
       <div className="app">
         {error && (
           <div className="banner" role="alert" style={{ margin: '10px 14px 0' }}>
@@ -62,7 +72,7 @@ export function App() {
           </div>
         )}
         <main>
-          {route.tab === 'home' && <Home navigate={navigate} onAdd={() => setSheet({ editId: null })} onEdit={openEdit} />}
+          {route.tab === 'home' && <Home navigate={navigate} onAdd={openNew} onEdit={openEdit} />}
           {route.tab === 'analytics' && <Analytics sub={route.sub} navigate={navigate} />}
           {route.tab === 'activity' && <Activity sub={route.sub} navigate={navigate} onEdit={openEdit} />}
           {route.tab === 'plan' && <Plan sub={route.sub} navigate={navigate} />}
@@ -73,7 +83,7 @@ export function App() {
             {NAV.slice(0, 2).map((n) => (
               <NavLink key={n.tab} {...n} active={route.tab === n.tab} />
             ))}
-            <button className="fab" aria-label="Add transaction" onClick={() => setSheet({ editId: null })}>
+            <button className="fab" aria-label="Add transaction" onClick={openNew}>
               <Icon name="plus" size={24} strokeWidth={2.4} />
             </button>
             {NAV.slice(2).map((n) => (
@@ -83,13 +93,14 @@ export function App() {
         </nav>
         {sheet && <TransactionSheet editId={sheet.editId} onClose={() => setSheet(null)} />}
       </div>
+      </ToastProvider>
     </MonthProvider>
   );
 }
 
 function NavLink({ tab, label, icon, active }: { tab: Tab; label: string; icon: string; active: boolean }) {
   return (
-    <a href={routeHref(tab)} aria-current={active ? 'page' : undefined}>
+    <a href={routeHref(tab)} aria-current={active ? 'page' : undefined} onClick={() => !active && play('tap')}>
       <Icon name={icon} size={22} />
       {label}
     </a>

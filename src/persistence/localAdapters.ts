@@ -20,7 +20,7 @@ export function createMemoryRepository(initial: FinanceSnapshot | null = null): 
   };
 }
 
-/** The subset of the Web Storage API we use — lets tests pass a fake that throws. */
+/** The subset of the Web Storage API we use; lets tests pass a fake that throws. */
 export interface KeyValueStorage {
   getItem(key: string): string | null;
   setItem(key: string, value: string): void;

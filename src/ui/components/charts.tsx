@@ -116,7 +116,7 @@ export function IncomeSpendLines({ series, budgetCents, projected, format }: Ser
   );
 }
 
-/** Donut — used only for single-period composition (a category breakdown of one month). */
+/** Donut: used only for single-period composition (a category breakdown of one month). */
 export function Donut({ items, total, centerLabel }: { items: CategoryTotal[]; total: string; centerLabel: string }) {
   const R = 62, r = 40, C = 80;
   let angle = -Math.PI / 2;

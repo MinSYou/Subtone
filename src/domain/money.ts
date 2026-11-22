@@ -43,12 +43,8 @@ function formatter(currency: string, locale: string, whole: boolean): Intl.Numbe
   const key = `${locale}|${currency}|${whole}`;
   let f = formatters.get(key);
   if (!f) {
-    f = new Intl.NumberFormat(locale, {
-      style: 'currency',
-      currency,
-      minimumFractionDigits: whole ? 0 : 2,
-      maximumFractionDigits: whole ? 0 : 2,
-    });
+    // Non-whole uses the currency's own minor units (2 for AUD, 0 for JPY/KRW).
+    f = new Intl.NumberFormat(locale, whole ? { style: 'currency', currency, minimumFractionDigits: 0, maximumFractionDigits: 0 } : { style: 'currency', currency });
     formatters.set(key, f);
   }
   return f;
@@ -57,7 +53,7 @@ function formatter(currency: string, locale: string, whole: boolean): Intl.Numbe
 export interface FormatOptions {
   currency?: string;
   locale?: string;
-  /** Drop cents (rounded) — for headline figures. */
+  /** Drop cents (rounded), for headline figures. */
   whole?: boolean;
   /** Prefix "+" for positive values (cashflow). */
   signed?: boolean;

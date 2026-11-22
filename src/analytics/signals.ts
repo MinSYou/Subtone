@@ -89,7 +89,7 @@ export function generateSignals(ctx: SignalContext): Insight[] {
         chip: { label: c.label, metric: over ? `+${money(c.spentCents - c.limitCents!)} over` : `${Math.round(c.spentPct)}% used` },
         categoryId: c.categoryId ?? undefined,
         detail: over
-          ? `${money(c.spentCents)} spent — ${money(c.spentCents - c.limitCents!)} over.`
+          ? `${money(c.spentCents)} spent, ${money(c.spentCents - c.limitCents!)} over.`
           : `${money(c.spentCents)} of ${money(c.limitCents!)} used; projected ${money(c.projectedCents)} by month end.`,
         action: { label: 'Adjust limit', route: 'plan/budgets', targetId: c.categoryId ?? undefined },
       });
@@ -168,7 +168,7 @@ export function generateSignals(ctx: SignalContext): Insight[] {
         priority: 40,
         title: soon.length === 1 ? `${names[0]} renews ${formatDayMonth(soon[0].date)}` : `${soon.length} bills due in the next ${snapshot.settings.upcomingWindowDays} days`,
         chip: { label: soon.length === 1 ? names[0] : `${soon.length} bills`, metric: `${money(total)} · ${soon[0].daysAway === 0 ? 'today' : `${soon[0].daysAway}d`}` },
-        detail: `${names.join(', ')}${more} — ${formatMoney(total, { currency: snapshot.settings.currency, locale: snapshot.settings.locale })} total. Already reserved in your safe-to-spend figure.`,
+        detail: `${names.join(', ')}${more}: ${formatMoney(total, { currency: snapshot.settings.currency, locale: snapshot.settings.locale })} total. Already reserved in your safe-to-spend figure.`,
         action: { label: 'View recurring', route: 'activity/recurring' },
       });
     }

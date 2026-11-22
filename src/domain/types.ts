@@ -85,12 +85,20 @@ export interface GoalContribution {
   note?: string;
 }
 
-export type ChartKind = 'bar' | 'line' | 'donut';
+/**
+ * One graph style for the whole app, chosen in Settings. Pie applies to single-period
+ * composition (category breakdown); time series fall back to bars for "pie".
+ */
+export type ChartStyle = 'bar' | 'pie' | 'line';
 
 export interface Settings {
   currency: string;
   locale: string;
-  chartPrefs: { trends: 'bar' | 'line'; breakdown: 'bar' | 'donut' };
+  /** UI language. Only en-AU is implemented; others are listed as coming soon. */
+  language: string;
+  chartStyle: ChartStyle;
+  /** Subtle UI sounds on key actions. */
+  sounds: boolean;
   /** Days of advance notice for upcoming recurring items. */
   upcomingWindowDays: number;
 }
@@ -98,7 +106,9 @@ export interface Settings {
 export const DEFAULT_SETTINGS: Settings = {
   currency: 'AUD',
   locale: 'en-AU',
-  chartPrefs: { trends: 'bar', breakdown: 'bar' },
+  language: 'en-AU',
+  chartStyle: 'bar',
+  sounds: true,
   upcomingWindowDays: 7,
 };
 

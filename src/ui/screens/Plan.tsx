@@ -1,12 +1,16 @@
 import { useMemo, useState } from 'react';
-import { checkAffordability, type PaceResult } from '../../analytics';
+import { checkAffordability, PACE_LABEL, type PaceResult } from '../../analytics';
 import { formatDayMonth } from '../../domain/dates';
 import { parseAmount } from '../../domain/money';
 import type { SavingsGoal, TransactionType } from '../../domain/types';
-import { CategoryPicker, Empty, MonthSwitcher, PaceBadge, PaceBar, Segmented, Sheet } from '../components/common';
+import { CategoryPicker, Empty, FieldLabel, MonthSwitcher, PaceBadge, PaceBar, Segmented, Sheet } from '../components/common';
+import { PaceMascot } from '../components/PaceMascot';
+import { DateField } from '../components/pickers';
+import { LIMITS, sanitizeLine } from '../../domain/validation';
+import { play } from '../sound';
 import { GoalJar, GOAL_ICONS } from '../components/GoalJar';
 import { Icon } from '../components/Icon';
-import { useDashboard, useMoney, useMonth, useStore, useStoreState, useToday } from '../context';
+import { useDashboard, useMoney, useMonth, useStore, useStoreState, useToast, useToday } from '../context';
 
 export function Plan({ sub, navigate }: { sub: string; navigate: (r: string) => void }) {
   const current = (['budgets', 'afford', 'goals'].includes(sub) ? sub : 'budgets') as 'budgets' | 'afford' | 'goals';
@@ -53,6 +57,16 @@ function Budgets() {
 
   return (
     <>
+      <div className="card pace-card">
+        <PaceMascot status={d.pacing.overall.status} size={60} />
+        <div className="stack" style={{ gap: 4 }}>
+          <span className={`pace-status ${d.pacing.overall.status}`}>{PACE_LABEL[d.pacing.overall.status]}</span>
+          <div className="pills num">
+            {d.pacing.overall.limitCents !== null && <span className="pill">{money(Math.max(0, d.pacing.overall.limitCents - d.pacing.overall.spentCents), { whole: true })} left</span>}
+            {clock.isCurrent && <span className="pill">→ {money(d.pacing.overall.projectedCents, { whole: true })}</span>}
+          </div>
+        </div>
+      </div>
       {clock.isCurrent && (
         <div className="row between small muted num">
           <span>
@@ -94,6 +108,7 @@ function Budgets() {
 
 function BudgetSheet({ categoryId, current, onClose }: { categoryId: string | null; current: number | null; onClose: () => void }) {
   const store = useStore();
+  const toast = useToast();
   const { data } = useStoreState();
   const [cat, setCat] = useState(categoryId ?? '');
   const [amount, setAmount] = useState(current ? String(current / 100) : '');
@@ -101,35 +116,43 @@ function BudgetSheet({ categoryId, current, onClose }: { categoryId: string | nu
   const isOverall = categoryId === null;
   const name = isOverall ? 'Monthly budget' : data.categories.find((c) => c.id === cat)?.name ?? 'Category limit';
   return (
-    <Sheet title={categoryId === '' ? 'New category limit' : name} onClose={onClose}>
-      {categoryId === '' && <CategoryPicker type="expense" value={cat} onChange={setCat} />}
-      <label className="field">
-        <span className="lbl">Limit per month</span>
-        <input className="input num" inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="0.00" />
-      </label>
-      <div className="row">
-        {current !== null && (
+    <Sheet
+      title={categoryId === '' ? 'New category limit' : name}
+      onClose={onClose}
+      footer={
+        <div className="row">
+          {current !== null && (
+            <button
+              className="btn danger"
+              onClick={() => {
+                store.setBudget(isOverall ? null : cat, null);
+                play('delete');
+                onClose();
+                toast({ message: `${name} limit removed`, actionLabel: 'Undo', onAction: () => { store.setBudget(isOverall ? null : cat, current); play('undo'); } });
+              }}
+            >
+              Remove
+            </button>
+          )}
           <button
-            className="btn danger"
+            className="btn primary grow"
+            disabled={!cents || (!isOverall && !cat)}
             onClick={() => {
-              store.setBudget(isOverall ? null : cat, null);
+              store.setBudget(isOverall ? null : cat, cents!);
+              play('success');
               onClose();
             }}
           >
-            Remove
+            Save limit
           </button>
-        )}
-        <button
-          className="btn primary grow"
-          disabled={!cents || (!isOverall && !cat)}
-          onClick={() => {
-            store.setBudget(isOverall ? null : cat, cents!);
-            onClose();
-          }}
-        >
-          Save limit
-        </button>
-      </div>
+        </div>
+      }
+    >
+      {categoryId === '' && <CategoryPicker type="expense" value={cat} onChange={setCat} compact />}
+      <label className="field">
+        <span className="lbl">Limit per month</span>
+        <input className="input num" inputMode="decimal" maxLength={12} value={amount} onChange={(e) => setAmount(e.target.value.replace(/[^\d.,]/g, ''))} placeholder="0.00" />
+      </label>
     </Sheet>
   );
 }
@@ -169,10 +192,10 @@ function Afford() {
           ))}
         </div>
         <CategoryPicker type={type} value={categoryId} onChange={setCategoryId} />
-        <label className="field">
+        <div className="field">
           <span className="lbl">When</span>
-          <input className="input" type="date" min={today} value={date} onChange={(e) => setDate(e.target.value || today)} />
-        </label>
+          <DateField value={date} onChange={(d) => setDate(d || today)} today={today} label="When" min={today} quick="future" />
+        </div>
       </div>
 
       {result && (
@@ -182,13 +205,13 @@ function Afford() {
           </span>
           <strong style={{ fontSize: 16 }}>{result.headline}</strong>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0,1fr))', gap: 8 }}>
-            <Metric label="Safe-to-spend after" value={result.safePerDayAfterCents === null ? '—' : `${money(result.safePerDayAfterCents, { whole: true })}/day`} />
+            <Metric label="Safe-to-spend after" value={result.safePerDayAfterCents === null ? '-' : `${money(result.safePerDayAfterCents, { whole: true })}/day`} />
             <Metric
               label={`${data.categories.find((c) => c.id === categoryId)?.name ?? 'Category'} limit left`}
               value={result.categoryLeftAfterCents === null ? 'No limit' : money(result.categoryLeftAfterCents, { whole: true })}
               warn={result.categoryOverLimit}
             />
-            <Metric label="Budget left after" value={result.budgetLeftAfterCents === null ? '—' : money(result.budgetLeftAfterCents, { whole: true })} warn={(result.budgetLeftAfterCents ?? 0) < 0} />
+            <Metric label="Budget left after" value={result.budgetLeftAfterCents === null ? '-' : money(result.budgetLeftAfterCents, { whole: true })} warn={(result.budgetLeftAfterCents ?? 0) < 0} />
             <Metric label="Unallocated after" value={money(result.unallocatedAfterCents, { whole: true, signed: true })} warn={result.unallocatedAfterCents < 0} />
           </div>
           <span className="small" style={{ color: '#3a3d44' }}>
@@ -236,14 +259,14 @@ function Goals() {
       </div>
 
       {d.goals.length === 0 ? (
-        <Empty title="No goals yet" body="Ring-fence surplus cashflow into buckets — a trip, an emergency fund, a new laptop." />
+        <Empty title="No goals yet" body="Ring-fence surplus cashflow into buckets: a trip, an emergency fund, a new laptop." />
       ) : (
         <div className="card tight">
           {d.goals.map((g) => (
             <div className="list-row" key={g.goal.id} style={{ alignItems: 'flex-start', gap: 12, padding: '12px 14px' }}>
               <GoalJar key={`${g.goal.id}-${g.savedCents}`} icon={g.goal.icon} color={g.goal.color} pct={g.pct} complete={g.complete} celebrate />
               <div className="grow stack" style={{ gap: 4 }}>
-                <button className="row between" style={{ background: 'none', border: 0, padding: 0, textAlign: 'left' }} onClick={() => setEditing(g.goal)}>
+                <button className="row between" style={{ background: 'none', border: 0, padding: 0, textAlign: 'left', minHeight: 36 }} onClick={() => setEditing(g.goal)} aria-label={`Edit ${g.goal.name}`}>
                   <span className="title">{g.goal.name}</span>
                   <span className="num small muted">{Math.round(g.pct)}%</span>
                 </button>
@@ -293,62 +316,70 @@ function Goals() {
 
 function GoalSheet({ goal, onClose }: { goal: SavingsGoal | null; onClose: () => void }) {
   const store = useStore();
+  const toast = useToast();
+  const today = useToday();
   const [name, setName] = useState(goal?.name ?? '');
   const [target, setTarget] = useState(goal ? String(goal.targetCents / 100) : '');
   const [icon, setIcon] = useState(goal?.icon ?? 'plane');
   const [date, setDate] = useState(goal?.targetDate ?? '');
   const cents = parseAmount(target);
   const meta = GOAL_ICONS.find((g) => g.icon === icon) ?? GOAL_ICONS[0];
+  const footer = (
+    <div className="row">
+      {goal && (
+        <button
+          className="btn danger"
+          aria-label={`Delete ${goal.name}`}
+          onClick={() => {
+            const removed = store.deleteGoal(goal.id);
+            play('delete');
+            onClose();
+            toast({ message: `${goal.name} deleted`, actionLabel: 'Undo', onAction: () => { store.restoreGoal(removed); play('undo'); } });
+          }}
+        >
+          <Icon name="trash" size={18} />
+        </button>
+      )}
+      <button
+        className="btn primary grow"
+        disabled={!name.trim() || !cents}
+        onClick={() => {
+          store.saveGoal({ id: goal?.id, createdAt: goal?.createdAt, name: sanitizeLine(name, LIMITS.name).value, targetCents: cents!, icon, color: meta.color, targetDate: date || undefined });
+          play('success');
+          onClose();
+        }}
+      >
+        Save goal
+      </button>
+    </div>
+  );
   return (
-    <Sheet title={goal ? 'Edit goal' : 'New savings goal'} onClose={onClose}>
-      <label className="field">
-        <span className="lbl">Name</span>
-        <input className="input" value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Japan trip" />
-      </label>
-      <div className="row">
-        <label className="field grow">
-          <span className="lbl">Target</span>
-          <input className="input num" inputMode="decimal" value={target} onChange={(e) => setTarget(e.target.value)} placeholder="0.00" />
-        </label>
-        <label className="field grow">
-          <span className="lbl">Target date (optional)</span>
-          <input className="input" type="date" value={date} onChange={(e) => setDate(e.target.value)} />
-        </label>
+    <Sheet title={goal ? 'Edit goal' : 'New savings goal'} onClose={onClose} footer={footer}>
+      <div className="field">
+        <FieldLabel htmlFor="goal-name" count={[...name].length} max={LIMITS.name}>
+          Name
+        </FieldLabel>
+        <input id="goal-name" className="input" value={name} maxLength={LIMITS.name} onChange={(e) => setName(sanitizeLine(e.target.value, LIMITS.name, true).value)} placeholder="e.g. Japan trip" />
+      </div>
+      <div className="row" style={{ alignItems: 'flex-start' }}>
+        <div className="field grow" style={{ flexBasis: 0, minWidth: 0 }}>
+          <label className="lbl" htmlFor="goal-target">Target</label>
+          <input id="goal-target" className="input num" inputMode="decimal" maxLength={12} value={target} onChange={(e) => setTarget(e.target.value.replace(/[^\d.,]/g, ''))} placeholder="0.00" />
+        </div>
+        <div className="field grow" style={{ flexBasis: 0, minWidth: 0 }}>
+          <span className="lbl">Target date</span>
+          <DateField value={date} onChange={setDate} today={today} label="Target date" min={today} optional quick="future" />
+        </div>
       </div>
       <div className="field">
         <span className="lbl">Icon</span>
         <div className="row wrap" role="group" aria-label="Goal icon">
           {GOAL_ICONS.map((g) => (
-            <button key={g.icon} type="button" aria-pressed={g.icon === icon} aria-label={g.label} onClick={() => setIcon(g.icon)} style={{ border: g.icon === icon ? '2px solid var(--accent)' : '1px solid var(--line)', borderRadius: 18, padding: 2, background: '#fff' }}>
+            <button key={g.icon} type="button" aria-pressed={g.icon === icon} aria-label={g.label} onClick={() => { setIcon(g.icon); play('tap'); }} style={{ border: g.icon === icon ? '2px solid var(--accent)' : '1px solid var(--line)', borderRadius: 18, padding: 2, background: '#fff' }}>
               <GoalJar icon={g.icon} color={g.color} pct={60} size={44} />
             </button>
           ))}
         </div>
-      </div>
-      <div className="row">
-        {goal && (
-          <button
-            className="btn danger"
-            onClick={() => {
-              if (window.confirm(`Delete "${goal.name}" and its history? Money set aside returns to unallocated.`)) {
-                store.deleteGoal(goal.id);
-                onClose();
-              }
-            }}
-          >
-            Delete
-          </button>
-        )}
-        <button
-          className="btn primary grow"
-          disabled={!name.trim() || !cents}
-          onClick={() => {
-            store.saveGoal({ id: goal?.id, createdAt: goal?.createdAt, name: name.trim(), targetCents: cents!, icon, color: meta.color, targetDate: date || undefined });
-            onClose();
-          }}
-        >
-          Save goal
-        </button>
       </div>
     </Sheet>
   );
@@ -360,23 +391,29 @@ function ContributeSheet({ goal, withdraw, suggestion, onClose }: { goal: Saving
   const [amount, setAmount] = useState(suggestion > 0 ? (suggestion / 100).toFixed(2) : '');
   const cents = parseAmount(amount);
   return (
-    <Sheet title={`${withdraw ? 'Withdraw from' : 'Set aside for'} ${goal.name}`} onClose={onClose}>
+    <Sheet
+      title={`${withdraw ? 'Withdraw from' : 'Set aside for'} ${goal.name}`}
+      onClose={onClose}
+      footer={
+        <button
+          className="btn primary block"
+          disabled={!cents}
+          onClick={() => {
+            store.contribute(goal.id, withdraw ? -cents! : cents!);
+            play(withdraw ? 'tap' : 'success');
+            onClose();
+          }}
+        >
+          {withdraw ? 'Withdraw' : 'Set aside'}
+        </button>
+      }
+    >
       <label className="field">
         <span className="lbl">Amount</span>
-        <input className="amount-input num" inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="0" aria-label="Amount" />
+        <input className="amount-input num" inputMode="decimal" maxLength={12} value={amount} onChange={(e) => setAmount(e.target.value.replace(/[^\d.,]/g, ''))} placeholder="0" aria-label="Amount" />
       </label>
-      {!withdraw && suggestion > 0 && <span className="muted small num">Suggested: your unallocated surplus, {money(suggestion, { whole: true })}.</span>}
-      <span className="muted small">This is a planning bucket in Subtone — it doesn't move money in your bank.</span>
-      <button
-        className="btn primary block"
-        disabled={!cents}
-        onClick={() => {
-          store.contribute(goal.id, withdraw ? -cents! : cents!);
-          onClose();
-        }}
-      >
-        {withdraw ? 'Withdraw' : 'Set aside'}
-      </button>
+      {!withdraw && suggestion > 0 && <span className="muted small num">💰 Suggested: {money(suggestion, { whole: true })} unallocated</span>}
+      <span className="muted small">🫙 A planning bucket only. No money moves in your bank.</span>
     </Sheet>
   );
 }

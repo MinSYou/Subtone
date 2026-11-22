@@ -1,14 +1,15 @@
-# Subtone — Smart Analytics
+# Subtone: Smart Analytics
 
 A private, mobile-first spending and decision-support web app. Track expenses and income, see where the month is heading, and check whether a purchase fits **before** you make it. Installable as a PWA; all data stays in your browser.
 
 ## Features
 
-- **Home** — net cashflow, budget pace with a clear status (*Under pace / On pace / Spending fast / Over budget*), a daily safe-to-spend figure that reserves upcoming bills, top signals, recent activity.
-- **Analytics** — category breakdown (Bar / Donut), 6-month income vs spending (Bar / Line) with a month-end projection, biggest movers, and a signals feed (budget burn, category limits, spend spikes, unusual transactions, upcoming bills, unallocated surplus).
-- **Activity** — instant search (title, notes, tags, category, amount), filters (type, fixed vs flexible, categories, date range, tag), edit/delete, and bulk recategorise / tag / delete. **Recurring & bills**: weekly, fortnightly, monthly and yearly items, upcoming renewals, mark-as-paid, pause/resume, monthly-equivalent totals.
-- **Plan** — per-category budgets with pacing, **Can I afford it?** for any category, and **savings goal buckets** with animated icons that ring-fence surplus cashflow.
-- **Settings** — one-tap JSON backup, CSV export, restore from backup, sample data, clear all.
+- **Home**: net cashflow, and **Penny**, a budget-pace mascot whose colour, face and motion show the status at a glance: Under pace, On pace, Spending fast or Over budget. Also an animated pace bar with metric pills, one-row signal chips and recent activity.
+- **Analytics**: category breakdown, a 6-month income vs spending trend with a month-end projection, signals, and **Statements**: bank-style monthly and annual reviews with period-over-period comparison, category table, largest expenses and CSV download.
+- **Activity**: pinned header with totals, instant search, filters (type, fixed vs flexible, categories, date range, tag), edit, bulk recategorise/tag/delete, and recurring bills and subscriptions (weekly, fortnightly, monthly, yearly) with Mark paid. Deletes and Mark paid can be undone from a toast.
+- **Plan**: per-category budgets with pacing, **Can I afford it?** for any category and date, and savings goal buckets with animated icons that ring-fence surplus cashflow.
+- **Settings**: language (placeholder), currency, subtle sounds on/off, a swipeable Bar / Pie / Line chart style, one-tap JSON backup, CSV export, restore.
+- **Forms**: pinned sheet header and Save button, big-target date picker, rounded dropdowns, character limits with live counters, and illegal-character filtering.
 
 ## Getting started
 
@@ -39,8 +40,8 @@ No accounts, analytics, trackers or network calls for your data. Records live in
 
 ## Docs
 
-- [ARCHITECTURE.md](ARCHITECTURE.md) — layers, data flow, how insights are computed, extension points.
-- [docs/TEST_EVIDENCE.md](docs/TEST_EVIDENCE.md) — test runs and the change log of every flaw found and fixed.
-- [src/persistence/firebase/README.md](src/persistence/firebase/README.md) — plugging in Firebase.
+- [ARCHITECTURE.md](ARCHITECTURE.md): layers, data flow, how insights are computed, extension points.
+- [docs/TEST_EVIDENCE.md](docs/TEST_EVIDENCE.md): test runs and the change log of every flaw found and fixed.
+- [src/persistence/firebase/README.md](src/persistence/firebase/README.md): plugging in Firebase.
 
 Design and analytics concepts were adapted from [Inpenso](https://github.com/VintusS/Inpenso) (MIT), re-implemented for a TypeScript/React web stack.

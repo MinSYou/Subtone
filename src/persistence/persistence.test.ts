@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { generateSampleData } from '../seed/sampleData';
 import { budget, snapshot, txn } from '../test/fixtures';
-import { BackupError, createBackup, csvCell, parseBackup, transactionsToCsv } from './backup';
+import { BackupError, createBackup, csvCell, migrateSettings, parseBackup, transactionsToCsv } from './backup';
 import { createLocalStorageRepository, createMemoryRepository, type KeyValueStorage } from './localAdapters';
 import { applyChanges, diffSnapshots, isEmptyChangeSet, RepositoryError } from './repository';
 
@@ -90,5 +90,13 @@ describe('backup', () => {
     expect(csvCell('-refund')).toBe("'-refund");
     const csv = transactionsToCsv(snapshot({ transactions: [txn('2026-11-01', 'groceries', 12_34, { title: 'Aldi, Newtown', tags: ['weekly', 'food'] })] }));
     expect(csv.split('\r\n')[1]).toMatch(/^2026-11-01,expense,"Aldi, Newtown",-12\.34,Groceries,flexible,weekly;food,,t_\d+$/);
+  });
+
+  it('migrates v0.1 chart preferences and drops unknown settings', () => {
+    expect(migrateSettings({ currency: 'NZD', chartPrefs: { trends: 'bar', breakdown: 'donut' }, evil: '<x>' })).toEqual({
+      currency: 'NZD', locale: 'en-AU', language: 'en-AU', chartStyle: 'pie', sounds: true, upcomingWindowDays: 7,
+    });
+    expect(migrateSettings({ chartPrefs: { trends: 'line', breakdown: 'bar' } }).chartStyle).toBe('line');
+    expect(migrateSettings(null).chartStyle).toBe('bar');
   });
 });

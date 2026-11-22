@@ -27,6 +27,6 @@ describe('sample seed data', () => {
     expect(d.goals).toHaveLength(3);
     const kinds = new Set(d.signals.map((s) => s.kind));
     for (const k of ['spend-spike', 'unusual-transaction', 'upcoming-recurring'] as const) expect(kinds).toContain(k);
-    expect(d.recurring.pausedCount).toBe(1);
+    expect(d.recurring.pausedCount).toBe(0);
   });
 });

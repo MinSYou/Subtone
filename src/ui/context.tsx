@@ -90,3 +90,58 @@ export function useMonth() {
   if (!ctx) throw new Error('useMonth must be used inside <MonthProvider>');
   return ctx;
 }
+
+// ---- Undo toasts ---------------------------------------------------------------------
+
+export interface ToastInput {
+  message: string;
+  actionLabel?: string;
+  onAction?: () => void;
+  /** ms before it disappears; default 5000. */
+  duration?: number;
+}
+
+const ToastContext = createContext<((t: ToastInput) => void) | null>(null);
+
+/**
+ * One toast at a time, bottom of the screen above the nav. Used for Undo after Mark paid and
+ * deletes, so mistakes are reversible without confirmation popups.
+ */
+export function ToastProvider({ children }: { children: ReactNode }) {
+  const [toast, setToast] = useState<(ToastInput & { key: number }) | null>(null);
+  useEffect(() => {
+    if (!toast) return;
+    const t = setTimeout(() => setToast(null), toast.duration ?? 5000);
+    return () => clearTimeout(t);
+  }, [toast]);
+  const show = useCallback((t: ToastInput) => setToast({ ...t, key: Date.now() }), []);
+  return (
+    <ToastContext.Provider value={show}>
+      {children}
+      <div className="toast-region" role="status" aria-live="polite">
+        {toast && (
+          <div className="toast" key={toast.key}>
+            <span className="grow">{toast.message}</span>
+            {toast.actionLabel && (
+              <button
+                className="toast-action"
+                onClick={() => {
+                  toast.onAction?.();
+                  setToast(null);
+                }}
+              >
+                {toast.actionLabel}
+              </button>
+            )}
+          </div>
+        )}
+      </div>
+    </ToastContext.Provider>
+  );
+}
+
+export function useToast() {
+  const ctx = useContext(ToastContext);
+  if (!ctx) throw new Error('useToast must be used inside <ToastProvider>');
+  return ctx;
+}

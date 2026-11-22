@@ -99,7 +99,7 @@ export function checkAffordability(snapshot: FinanceSnapshot, query: AffordQuery
   return {
     ...base,
     verdict: 'comfortable',
-    headline: 'Yes — this fits this month',
+    headline: 'Yes, this fits this month',
     advice: 'You stay inside your budget and keep a normal daily buffer for the rest of the month.',
   };
 }

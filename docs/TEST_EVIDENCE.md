@@ -220,3 +220,129 @@ These are the same as round 1, plus one new item:
 - Vitest itself
 - the real `@fontsource-variable/inter`
 - (new) on-device iOS PWA safe-area rendering
+
+---
+
+# Round 3: forms, Activity, statements, settings, devices (branch `feat/ui-round3`)
+
+**Results:** 72 unit tests pass, 0 fail (197 assertions), up from 59. Core `tsc`: 0 errors. Em dashes in the repo (`grep -rIo '—'`, excluding `node_modules`/`.git`): **0** (29 before). Console and page errors across all screens on 7 devices: **0**.
+
+## Device matrix (Playwright, Chromium device emulation, sample data)
+
+Per device the script loads all 11 routes and checks:
+- horizontal overflow
+- bottom bar and `+` button size and containment
+- whether Save and the last field (Notes) are visible on first open, for Expense and Income
+- whether the edit-sheet header moves after scrolling its body to the end with 12 lines of notes
+- whether the Activity header is pinned after a 1500px scroll
+- visible interactive elements smaller than 32px on either side
+
+| Device | Overflow | Bar / `+` | Expense: fits / Save | Income: fits | Edit header moved | Activity pinned | Targets < 32px |
+|---|---|---|---|---|---|---|---|
+| iPhone SE 375×667 | none | 67 / 44, inside | yes / yes | yes | 0px | yes | 0 |
+| iPhone 15 393×852 | none | 67 / 44, inside | yes / yes | yes | 0px | yes | 0 |
+| iPhone 15 Pro Max 430×932 | none | 67 / 44, inside | yes / yes | yes | 0px | yes | 0 |
+| Galaxy S23 360×780 | none | 67 / 44, inside | yes / yes | yes | 0px | yes | 0 |
+| Galaxy Z Fold (folded) 344×882 | none | 67 / 44, inside | yes / yes | yes | 0px | yes | 0 |
+| iPad mini 768×1024 | none | 67 / 44, inside | yes / yes | yes | 0px | yes | 0 |
+| iPad Pro 1366×1024 | none | 67 / 44, inside | yes / yes | yes | 0px | yes | 0 |
+
+This is browser emulation of viewport, pixel ratio and touch; it isn't real Safari or Samsung Internet. Safe-area insets are zero in emulation, so the `env(safe-area-inset-*)` paths still need checking on a real notched phone.
+
+## Interaction checks (iPhone 15 viewport)
+
+`{"menuClosedByEsc":true,"dateLabel":"Date: Yesterday","title":"bLunch/b x","note":"Removed < > { }","before":257,"afterPaid":258,"afterUndo":257,"styleAfterSwipe":"line","errs":[]}`
+
+## Findings and fixes
+
+### R3-1. Save button below the fold on Expense (reported)
+- **Before (measured on the round-2 build):**
+
+  | Device | Expense Save bottom / viewport | Income |
+  |---|---|---|
+  | iPhone SE | 857 / 667, hidden | 803 / 667, hidden |
+  | iPhone 15 | 872 / 852, hidden | 836 / 852, visible |
+  | Galaxy S23 | 866 / 780, hidden | 812 / 780, hidden |
+
+- **Cause:** the sheet was a single scrolling column, so Save was the last item. The 12 expense categories made 3 rows of 58px tiles.
+- **Change:**
+  - `Sheet` got a pinned `footer` slot.
+  - `CategoryPicker` got a `compact` mode with 46px tiles (42px on short screens).
+  - Tags and Notes sit side by side on screens under 720px tall.
+  - The amount row goes inline on short screens.
+  - The first test still showed iPhone SE 100px over (`bodyScroll 632 / bodyClient 532`); the short-screen rules fixed it.
+- **After:** the matrix above shows Save and every field visible on open on all 7 devices.
+
+### R3-2. "Edit transaction" header scrolled with the content (reported)
+- **Before:** after scrolling 400px the header top was at **−133px** (iPhone SE) and **−20px** (Galaxy S23), off screen.
+- **Change:** the `.sheet` is a bounded flex column: `.sheet-head` (pinned), `.sheet-body` (`overflow-y: auto`), `.sheet-foot` (pinned). Max height is `100dvh` minus the top safe area.
+- **After:** the header moves **0px** when the body scrolls to the end, and the footer stays visible.
+
+### R3-3. Sheet stole focus on parent re-renders (found in code review)
+- **File:** `src/ui/components/common.tsx`, `Sheet`
+- **Cause:** `useEffect(..., [onClose])`. Callers pass inline arrows, so any parent render re-ran the effect, which re-focused the first focusable element (the Close button) and re-applied scroll lock.
+- **Change:** keep `onClose` in a ref and run the effect once per open.
+  ```diff
+  - }, [onClose]);
+  + const closeRef = useRef(onClose); closeRef.current = onClose;
+  + }, []);
+  ```
+
+### R3-4. Escape on an open dropdown closed the whole form (found by the interaction test)
+- **Test output:** `locator.click: Timeout 30000ms exceeded. waiting for getByRole('button', { name: /^Date:/ })`. The New transaction sheet had closed.
+- **Cause:** the sheet's `window` keydown listener also received Escape.
+- **Change:** `Select` registers a capture-phase `window` listener that calls `stopImmediatePropagation()` and `preventDefault()`. `Sheet` ignores `defaultPrevented` events and only the top sheet in the stack reacts.
+- **After:** `menuClosedByEsc: true`, and the sheet stays open.
+
+### R3-5. Native dropdowns looked inconsistent (reported)
+- **Change:** a new `Select` listbox replaces every `<select>` (Repeats, recurring cadence, tag filter, language, currency, statement period). The trigger and menu share a 12–14px radius, the same border and an elevated shadow. Options are 44px tall. It supports arrow keys, Enter and Escape.
+
+### R3-6. Small date picker (reported)
+- **Change:** a new `DateField` replaces every `<input type="date">` (5 places). It opens a sheet with quick picks (Today, Yesterday, 2 days ago, Last week, or future equivalents), a Monday-first grid with 44px day cells, and a month/year view. `min`, `max` and Clear are supported.
+
+### R3-7. Title placeholders
+- 5 per type (expense: `e.g. Dinner - Chat Thai`, `e.g. Woolworths groceries`, `e.g. Opal / train fare`, `e.g. Chemist Warehouse`, `e.g. Coffee with Sam`), picked at random once per open, with hyphens instead of em dashes.
+
+### R3-8. Character limits and illegal characters
+- **New:** `src/domain/validation.ts`, used live in forms and again in `FinanceStore` writes.
+- **Tests:** 6 in `validation.test.ts`, plus a store test that writes `<script>` + 100 × `x` and checks a 60-character title starting `script` and tags `['a-b','x']`.
+- **UI:** live counters (`0/60`, `0/8`, `0/280`) turn orange near the limit, with a "Removed < > { }" note when something is stripped.
+
+### R3-9. Em dashes
+- 29 occurrences in 15 files were replaced: UI copy, signal text, manifest and title, comments, tests and README. The sanitiser converts any typed em dash to a hyphen. The source holds `—` escapes, so the repo grep reads 0.
+- **Note:** commit messages already pushed in rounds 1–2 contain em dashes. Rewriting pushed history would need a force-push, so I left them.
+
+### R3-10. Activity header (reported)
+- **Change:** a `.sticky-top` block holds the title, tabs and a live summary (count, money in, money out, Select). The Recurring tab shows monthly recurring, subscriptions and the next 30 days.
+
+### R3-11. No undo after Mark paid (reported)
+- **Change:** Mark paid shows a toast: "Netflix marked paid · Undo". The row also shows a green **✓ Paid** chip that you can tap to reverse it.
+- Single deletes, bulk deletes, budget removal, goal deletion and recurring removal now use Undo toasts instead of `window.confirm` popups.
+- **Verified:** 257 → 258 → 257 transactions.
+
+### R3-12. Pause/unpause removed (reported)
+- **Removed:** the pause/resume buttons, the "Paused saves" summary and the paused gym item in the sample data.
+- Old data that still contains a paused item is treated as active, so nothing disappears silently.
+- The seed test now expects `pausedCount` 0.
+
+### R3-13. Budget pace mascot
+- **New:** `PaceMascot` ("Penny"), an original SVG coin character, with expression cross-fades that also work in Safari. All motion is off under reduced motion.
+- **Found in its own gallery render:** sparkles showed on all five states. The `twinkle` animation's opacity keyframes override inline `opacity: 0`. Fix: visibility goes on an outer group and the animation on an inner group, scoped to `.mascot-under`; steam got the same treatment.
+- **Also found:** the Spending fast brows looked angry, because the paths were swapped. Fix: inner ends raised = worried, lowered = cross.
+
+### R3-14. Statements
+- **New:** `src/analytics/statement.ts` with 4 tests. It covers monthly (like-for-like days for the current month) and annual (year to date vs the same span last year, 29 Feb clamped) statements, with money in/out, net, saved to goals, average daily spend, category table with change %, largest 5 expenses, month-by-month table with best 🏆 and worst ⚠️ months, and CSV download.
+
+### R3-15. Settings: language, currency, chart style
+- **Language** is a placeholder: only English (Australia) is enabled; the others are marked "Coming soon".
+- **Currency** offers 11 options, with the note "Amounts are not converted". `formatMoney` now uses each currency's own minor units, so JPY and KRW show no decimals.
+- **Chart style** is a 3-panel scroll-snap swiper (Bar / Pie / Line) that replaces the toggles inside Analytics. Settings migration maps the old `chartPrefs` to `chartStyle` (tested).
+
+### R3-16. Sounds
+- **New:** `src/ui/sound.ts`, 5 synthesised sounds (tap, open, success, undo, delete), on by default with a switch in Settings. They play when opening and saving a transaction, on Mark paid, Undo, delete, tab changes and picker choices.
+- **Not verifiable headlessly:** whether they sound right and their volume on real speakers. Please listen on your phone.
+
+### R3-17. Touch targets
+- **Before the fix**, the matrix found 6 to 8 visible controls under 32px: section "All" links, small segments, "Review … limit →" links, goal name buttons, swiper dots and the Sounds switch.
+- **Change:** 40px minimum on link buttons, 36px on small segments, 36px dots, a 54×34 switch and 36px goal title buttons.
+- **After:** 0 on every device.

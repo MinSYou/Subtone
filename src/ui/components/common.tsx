@@ -6,6 +6,7 @@ import { addMonthsToKey, formatDayMonth, formatMonthLong, type MonthKey } from '
 import type { Category, Insight, Transaction, TransactionType } from '../../domain/types';
 import { useMoney, useMonth, useStoreState } from '../context';
 import { Icon } from './Icon';
+import { play } from '../sound';
 import { PACE_EMOJI } from './visual';
 
 export function Segmented<T extends string>({
@@ -51,17 +52,26 @@ export function useMonthLabel(month: MonthKey) {
   return formatMonthLong(month);
 }
 
+/** Open sheets, innermost last: only the top one reacts to Escape; scroll stays locked until all close. */
+const sheetStack: symbol[] = [];
+
 /**
- * Bottom sheet rendered through a portal on <body>, so its full-screen backdrop is never trapped
- * by an ancestor's transform/filter/stacking context. The page behind is made inert (no focus,
- * no taps, hidden from screen readers) and scroll is locked on both html and body.
+ * Bottom sheet rendered through a portal on <body> (never trapped by an ancestor's stacking
+ * context). Layout is a bounded flex column: the header and the optional footer stay pinned and
+ * only the body scrolls, so titles never drift and primary actions are always on screen.
  */
-export function Sheet({ title, onClose, children }: { title: string; onClose: () => void; children: ReactNode }) {
+export function Sheet({ title, onClose, children, footer }: { title: string; onClose: () => void; children: ReactNode; footer?: ReactNode }) {
   const ref = useRef<HTMLDivElement>(null);
+  const closeRef = useRef(onClose);
+  closeRef.current = onClose;
   useEffect(() => {
+    const id = Symbol('sheet');
+    sheetStack.push(id);
     const prev = document.activeElement as HTMLElement | null;
-    ref.current?.querySelector<HTMLElement>('input, select, textarea, button')?.focus();
-    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
+    ref.current?.querySelector<HTMLElement>('.sheet-body input, .sheet-body textarea, .sheet-body button, .sheet-head button')?.focus({ preventScroll: true });
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && !e.defaultPrevented && sheetStack[sheetStack.length - 1] === id) closeRef.current();
+    };
     window.addEventListener('keydown', onKey);
     const root = document.getElementById('root');
     root?.setAttribute('inert', '');
@@ -69,26 +79,48 @@ export function Sheet({ title, onClose, children }: { title: string; onClose: ()
     document.documentElement.classList.add('sheet-open');
     return () => {
       window.removeEventListener('keydown', onKey);
-      root?.removeAttribute('inert');
-      root?.removeAttribute('aria-hidden');
-      document.documentElement.classList.remove('sheet-open');
-      prev?.focus?.();
+      sheetStack.splice(sheetStack.indexOf(id), 1);
+      if (sheetStack.length === 0) {
+        root?.removeAttribute('inert');
+        root?.removeAttribute('aria-hidden');
+        document.documentElement.classList.remove('sheet-open');
+      }
+      prev?.focus?.({ preventScroll: true });
     };
-  }, [onClose]);
+    // Runs once per open: re-running on every parent render would steal focus while typing.
+  }, []);
   return createPortal(
-    <div className="backdrop" onClick={(e) => e.target === e.currentTarget && onClose()}>
+    <div className="backdrop" onClick={(e) => e.target === e.currentTarget && closeRef.current()}>
       <div className="sheet" role="dialog" aria-modal="true" aria-label={title} ref={ref}>
-        <div className="grab" />
         <div className="sheet-head">
-          <h2>{title}</h2>
-          <button className="icon-btn plain" aria-label="Close" onClick={onClose}>
-            <Icon name="close" />
-          </button>
+          <div className="grab" />
+          <div className="row between">
+            <h2>{title}</h2>
+            <button className="icon-btn plain" aria-label="Close" onClick={() => closeRef.current()}>
+              <Icon name="close" />
+            </button>
+          </div>
         </div>
-        {children}
+        <div className="sheet-body">{children}</div>
+        {footer && <div className="sheet-foot">{footer}</div>}
       </div>
     </div>,
     document.body,
+  );
+}
+
+/** Label row with an optional live character counter. */
+export function FieldLabel({ htmlFor, children, count, max, note }: { htmlFor?: string; children: ReactNode; count?: number; max?: number; note?: string }) {
+  const near = max !== undefined && count !== undefined && count >= max * 0.9;
+  return (
+    <div className="row between" style={{ minHeight: 16 }}>
+      <label className="lbl" htmlFor={htmlFor}>
+        {children}
+      </label>
+      <span className="small num" aria-live="polite" style={{ color: note ? 'var(--warn)' : near ? 'var(--warn)' : 'var(--muted)' }}>
+        {note ?? (max !== undefined && count !== undefined ? `${count}/${max}` : '')}
+      </span>
+    </div>
   );
 }
 
@@ -138,11 +170,14 @@ export function CategoryPicker({
   value,
   onChange,
   label = 'Category',
+  compact,
 }: {
   type: TransactionType;
   value: string;
   onChange: (id: string) => void;
   label?: string;
+  /** Tighter tiles for forms that must fit above the fold. */
+  compact?: boolean;
 }) {
   const { data } = useStoreState();
   const cats = data.categories.filter((c) => c.type === type && !c.archived);
@@ -151,11 +186,19 @@ export function CategoryPicker({
       <span className="lbl" id={`cat-${type}-lbl`}>
         {label}
       </span>
-      <div className="cat-grid" role="group" aria-labelledby={`cat-${type}-lbl`}>
+      <div className={`cat-grid${compact ? ' compact' : ''}`} role="group" aria-labelledby={`cat-${type}-lbl`}>
         {cats.map((c) => (
-          <button key={c.id} type="button" aria-pressed={c.id === value} onClick={() => onChange(c.id)}>
+          <button
+            key={c.id}
+            type="button"
+            aria-pressed={c.id === value}
+            onClick={() => {
+              onChange(c.id);
+              play('tap');
+            }}
+          >
             <span style={{ color: c.color }}>
-              <Icon name={c.icon} size={18} />
+              <Icon name={c.icon} size={compact ? 16 : 18} />
             </span>
             {c.name}
           </button>

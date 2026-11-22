@@ -4,7 +4,7 @@ import { activeFilterCount, filterTransactions, groupByDate } from './filters';
 
 const cats = snapshot().categories;
 const list = [
-  txn('2026-11-01', 'rent', 1800_00, { title: 'Rent — Newtown' }),
+  txn('2026-11-01', 'rent', 1800_00, { title: 'Rent - Newtown' }),
   txn('2026-11-05', 'eating-out', 42_50, { title: 'Chat Thai', tags: ['date-night'] }),
   txn('2026-11-05', 'groceries', 86_40, { title: 'Woolworths', notes: 'weekly shop' }),
   txn('2026-11-20', 'salary', 2600_00, { title: 'Salary' }),
@@ -22,10 +22,10 @@ describe('transaction filters', () => {
   });
 
   it('combines type, fixed/flexible, category and date filters', () => {
-    expect(filterTransactions(list, cats, { spendClass: 'fixed' }).map((t) => t.title)).toEqual(['Rent — Newtown']);
+    expect(filterTransactions(list, cats, { spendClass: 'fixed' }).map((t) => t.title)).toEqual(['Rent - Newtown']);
     expect(filterTransactions(list, cats, { spendClass: 'flexible', from: '2026-11-02' }).map((t) => t.title)).toHaveLength(2);
     expect(filterTransactions(list, cats, { type: 'income' }).map((t) => t.title)).toEqual(['Salary']);
-    expect(filterTransactions(list, cats, { categoryIds: ['rent', 'salary'], to: '2026-11-10' }).map((t) => t.title)).toEqual(['Rent — Newtown']);
+    expect(filterTransactions(list, cats, { categoryIds: ['rent', 'salary'], to: '2026-11-10' }).map((t) => t.title)).toEqual(['Rent - Newtown']);
     expect(activeFilterCount({ type: 'income', from: '2026-11-01', categoryIds: [] })).toBe(2);
   });
 

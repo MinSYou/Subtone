@@ -23,6 +23,29 @@ describe('FinanceStore', () => {
     expect(saved[0].tags).toEqual(['morning']);
   });
 
+  it('enforces text limits and strips illegal characters on every write', async () => {
+    const store = makeStore();
+    await store.init();
+    const t = store.addTransaction({ type: 'expense', title: '<script>' + 'x'.repeat(100), amountCents: 1_00, date: '2026-11-22', categoryId: 'shopping', tags: ['A b', '<x>'], notes: ' n\u0000ote ' });
+    expect(t.title).toHaveLength(60);
+    expect(t.title.startsWith('script')).toBe(true);
+    expect(t.tags).toEqual(['a-b', 'x']);
+  });
+
+  it('undoes a deletion and a mark-paid', async () => {
+    const store = makeStore();
+    await store.loadSample();
+    const before = store.getState().data.transactions.length;
+    const removed = store.deleteTransactions(store.getState().data.transactions.slice(0, 3).map((t) => t.id));
+    expect(store.getState().data.transactions).toHaveLength(before - 3);
+    store.restoreTransactions(removed);
+    expect(store.getState().data.transactions).toHaveLength(before);
+    const netflix = store.getState().data.recurring.find((r) => r.title === 'Netflix')!;
+    const paid = store.markRecurringPaid(netflix.id, '2026-11-25')!;
+    store.deleteTransactions([paid.id]);
+    expect(store.getState().data.transactions.some((t) => t.id === paid.id)).toBe(false);
+  });
+
   it('bulk recategorises, tags and deletes only the selected transactions', async () => {
     const store = makeStore();
     await store.init();
