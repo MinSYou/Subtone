@@ -225,7 +225,7 @@ These are the same as round 1, plus one new item:
 
 # Round 3: forms, Activity, statements, settings, devices (branch `feat/ui-round3`)
 
-**Results:** 72 unit tests pass, 0 fail (197 assertions), up from 59. Core `tsc`: 0 errors. Em dashes in the repo (`grep -rIo '—'`, excluding `node_modules`/`.git`): **0** (29 before). Console and page errors across all screens on 7 devices: **0**.
+**Results:** 72 unit tests pass, 0 fail (197 assertions), up from 59. Core `tsc`: 0 errors. Em dashes in the repo (a search for U+2014, excluding `node_modules`/`.git`): **0** (29 before). Console and page errors across all screens on 7 devices: **0**.
 
 ## Device matrix (Playwright, Chromium device emulation, sample data)
 
@@ -309,7 +309,7 @@ This is browser emulation of viewport, pixel ratio and touch; it isn't real Safa
 - **UI:** live counters (`0/60`, `0/8`, `0/280`) turn orange near the limit, with a "Removed < > { }" note when something is stripped.
 
 ### R3-9. Em dashes
-- 29 occurrences in 15 files were replaced: UI copy, signal text, manifest and title, comments, tests and README. The sanitiser converts any typed em dash to a hyphen. The source holds `—` escapes, so the repo grep reads 0.
+- 29 occurrences in 15 files were replaced: UI copy, signal text, manifest and title, comments, tests and README. The sanitiser converts any typed em dash to a hyphen. The source holds `U+2014` escapes, so the repo grep reads 0.
 - **Note:** commit history was rewritten when this round was published, so commit messages are also free of em dashes.
 
 ### R3-10. Activity header (reported)

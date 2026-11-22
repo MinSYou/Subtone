@@ -13,7 +13,7 @@ describe('university student sample data', () => {
     const ids = new Set(data.categories.map((c) => c.id));
     expect(data.transactions.every((t) => ids.has(t.categoryId) && t.date <= TODAY && Number.isInteger(t.amountCents) && t.amountCents > 0)).toBe(true);
     expect(new Set(data.transactions.map((t) => t.id)).size).toBe(data.transactions.length);
-    expect(JSON.stringify(data)).not.toContain('—');
+    expect(JSON.stringify(data)).not.toContain('\u2014');
   });
 
   it('looks like a student budget: weekly rent and pay, many small campus purchases', () => {
