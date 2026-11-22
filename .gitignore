@@ -1,0 +1,11 @@
+node_modules/
+dist/
+coverage/
+*.local
+.env
+.env.*
+.DS_Store
+*.log
+# exported backups contain personal financial data
+subtone-backup-*.json
+subtone-backup-*.csv
