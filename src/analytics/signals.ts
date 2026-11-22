@@ -57,6 +57,7 @@ export function generateSignals(ctx: SignalContext): Insight[] {
       severity: 'alert',
       priority: 100,
       title: `Over budget by ${money(o.spentCents - o.limitCents)}`,
+      chip: { label: 'Budget', metric: `+${money(o.spentCents - o.limitCents)} over` },
       detail: `You've spent ${money(o.spentCents)} of ${money(o.limitCents)} this month.`,
       action: { label: 'See budget pacing', route: 'plan/budgets' },
     });
@@ -67,6 +68,7 @@ export function generateSignals(ctx: SignalContext): Insight[] {
       severity: 'warning',
       priority: 90,
       title: `On track to finish ${money(o.projectedCents - o.limitCents)} over budget`,
+      chip: { label: 'Month-end', metric: `+${money(o.projectedCents - o.limitCents)} over` },
       detail: `Day-to-day spending is running at ${money(o.dailyRateCents)}/day; ${money(o.safePerDayCents ?? 0)}/day keeps you inside ${money(o.limitCents)}.`,
       action: { label: 'See budget pacing', route: 'plan/budgets' },
     });
@@ -84,6 +86,8 @@ export function generateSignals(ctx: SignalContext): Insight[] {
         severity: over ? 'alert' : 'warning',
         priority: over ? 85 : 70,
         title: over ? `${c.label} is over its ${money(c.limitCents!)} limit` : `${c.label} is spending fast`,
+        chip: { label: c.label, metric: over ? `+${money(c.spentCents - c.limitCents!)} over` : `${Math.round(c.spentPct)}% used` },
+        categoryId: c.categoryId ?? undefined,
         detail: over
           ? `${money(c.spentCents)} spent — ${money(c.spentCents - c.limitCents!)} over.`
           : `${money(c.spentCents)} of ${money(c.limitCents!)} used; projected ${money(c.projectedCents)} by month end.`,
@@ -106,6 +110,8 @@ export function generateSignals(ctx: SignalContext): Insight[] {
           severity: 'warning',
           priority: 60 + Math.min(20, Math.round(m.deltaPct! / 10)),
           title: `${m.category.name} is up ${Math.round(m.deltaPct!)}% vs last month`,
+          chip: { label: m.category.name, metric: `+${Math.round(m.deltaPct!)}%` },
+          categoryId: m.category.id,
           detail: `${money(m.currentCents)} so far vs ${money(m.previousCents)} over the same days last month.`,
           action: {
             label: pacing.categories.some((c) => c.categoryId === m.category.id) ? `Review ${m.category.name} limit` : `Set a limit for ${m.category.name}`,
@@ -140,6 +146,8 @@ export function generateSignals(ctx: SignalContext): Insight[] {
         severity: 'info',
         priority: 50,
         title: `${t.title} ${formatMoney(t.amountCents, { currency: snapshot.settings.currency, locale: snapshot.settings.locale })} on ${formatDayMonth(t.date)}`,
+        chip: { label: t.title, metric: `${ratio.toFixed(1)}× usual` },
+        categoryId: t.categoryId,
         detail: `About ${ratio.toFixed(1)}× your typical ${categoryOf(index, t.categoryId).name} spend (${money(Math.round(typical))}). Check it was you, or recategorise it.`,
         action: { label: 'Review transaction', route: 'activity/transactions', targetId: t.id },
       });
@@ -159,6 +167,7 @@ export function generateSignals(ctx: SignalContext): Insight[] {
         severity: 'info',
         priority: 40,
         title: soon.length === 1 ? `${names[0]} renews ${formatDayMonth(soon[0].date)}` : `${soon.length} bills due in the next ${snapshot.settings.upcomingWindowDays} days`,
+        chip: { label: soon.length === 1 ? names[0] : `${soon.length} bills`, metric: `${money(total)} · ${soon[0].daysAway === 0 ? 'today' : `${soon[0].daysAway}d`}` },
         detail: `${names.join(', ')}${more} — ${formatMoney(total, { currency: snapshot.settings.currency, locale: snapshot.settings.locale })} total. Already reserved in your safe-to-spend figure.`,
         action: { label: 'View recurring', route: 'activity/recurring' },
       });
@@ -175,6 +184,7 @@ export function generateSignals(ctx: SignalContext): Insight[] {
       severity: 'positive',
       priority: 30,
       title: `${money(alloc.unallocatedCents)} of surplus isn't set aside yet`,
+      chip: { label: 'Surplus', metric: `${money(alloc.unallocatedCents)} to save` },
       detail: 'Move it into a savings goal so leftover cashflow is not treated as spending money.',
       action: { label: 'Add to a goal', route: 'plan/goals' },
     });

@@ -15,10 +15,10 @@ export const GOAL_ICONS = [
  * Animated goal bucket: the fill rises to the saved percentage with a gentle wave, and the icon
  * bobs (pops once when complete). All motion is disabled under prefers-reduced-motion.
  */
-export function GoalJar({ icon, color, pct, complete, size = 52 }: { icon: string; color: string; pct: number; complete?: boolean; size?: number }) {
+export function GoalJar({ icon, color, pct, complete, celebrate, size = 52 }: { icon: string; color: string; pct: number; complete?: boolean; celebrate?: boolean; size?: number }) {
   const level = Math.max(6, Math.min(100, pct));
   return (
-    <span className={`goal-jar${complete ? ' complete' : ''}`} style={{ width: size, height: size }} aria-hidden="true">
+    <span className={`goal-jar${complete ? ' complete' : ''}${celebrate ? ' celebrate' : ''}`} style={{ width: size, height: size }} aria-hidden="true">
       <span className="level" style={{ height: `${level}%`, background: `${color}55` }} />
       <span className="ico" style={{ color }}>
         <Icon name={icon} size={Math.round(size * 0.46)} />

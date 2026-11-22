@@ -188,6 +188,10 @@ describe('signals', () => {
     const spike = insights.find((i) => i.kind === 'spend-spike' && i.title.startsWith('Eating Out'));
     // $412 (1–22 Nov) vs 5 × $50 = $250 (1–22 Oct) → +64.8%
     expect(spike?.title).toBe('Eating Out is up 65% vs last month');
+    expect(spike?.chip).toEqual({ label: 'Eating Out', metric: '+65%' });
+    expect(spike?.categoryId).toBe('eating-out');
+    // every signal has a compact chip for Home
+    expect(insights.every((i) => i.chip.label.length > 0 && i.chip.metric.length > 0)).toBe(true);
   });
 
   it('stays quiet on comparative signals without two months of history', () => {

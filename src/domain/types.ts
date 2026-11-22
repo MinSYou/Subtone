@@ -154,5 +154,9 @@ export interface Insight {
   detail: string;
   /** Sort weight; higher = more important. */
   priority: number;
+  /** Compact form for glanceable chips: a subject and a bold metric, e.g. "Shopping" / "+261%". */
+  chip: { label: string; metric: string };
+  /** Category the insight is about, when there is one (lets the UI show its icon/emoji). */
+  categoryId?: Id;
   action?: InsightAction;
 }

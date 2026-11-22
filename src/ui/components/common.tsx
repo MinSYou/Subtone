@@ -1,10 +1,12 @@
 import { useEffect, useRef, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 import { PACE_LABEL, type PaceResult } from '../../analytics';
 import { categoryOf, indexCategories } from '../../domain/categories';
 import { addMonthsToKey, formatDayMonth, formatMonthLong, type MonthKey } from '../../domain/dates';
 import type { Category, Insight, Transaction, TransactionType } from '../../domain/types';
 import { useMoney, useMonth, useStoreState } from '../context';
 import { Icon } from './Icon';
+import { PACE_EMOJI } from './visual';
 
 export function Segmented<T extends string>({
   options,
@@ -49,6 +51,11 @@ export function useMonthLabel(month: MonthKey) {
   return formatMonthLong(month);
 }
 
+/**
+ * Bottom sheet rendered through a portal on <body>, so its full-screen backdrop is never trapped
+ * by an ancestor's transform/filter/stacking context. The page behind is made inert (no focus,
+ * no taps, hidden from screen readers) and scroll is locked on both html and body.
+ */
 export function Sheet({ title, onClose, children }: { title: string; onClose: () => void; children: ReactNode }) {
   const ref = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -56,14 +63,19 @@ export function Sheet({ title, onClose, children }: { title: string; onClose: ()
     ref.current?.querySelector<HTMLElement>('input, select, textarea, button')?.focus();
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
     window.addEventListener('keydown', onKey);
-    document.body.style.overflow = 'hidden';
+    const root = document.getElementById('root');
+    root?.setAttribute('inert', '');
+    root?.setAttribute('aria-hidden', 'true');
+    document.documentElement.classList.add('sheet-open');
     return () => {
       window.removeEventListener('keydown', onKey);
-      document.body.style.overflow = '';
+      root?.removeAttribute('inert');
+      root?.removeAttribute('aria-hidden');
+      document.documentElement.classList.remove('sheet-open');
       prev?.focus?.();
     };
   }, [onClose]);
-  return (
+  return createPortal(
     <div className="backdrop" onClick={(e) => e.target === e.currentTarget && onClose()}>
       <div className="sheet" role="dialog" aria-modal="true" aria-label={title} ref={ref}>
         <div className="grab" />
@@ -75,16 +87,17 @@ export function Sheet({ title, onClose, children }: { title: string; onClose: ()
         </div>
         {children}
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 
-export function PaceBar({ pace }: { pace: PaceResult }) {
+export function PaceBar({ pace, large }: { pace: PaceResult; large?: boolean }) {
   const marker = pace.idealPct;
   const pct = pace.limitCents ? Math.min(100, pace.spentPct) : 0;
   return (
     <div
-      className="bar"
+      className={`bar${large ? ' lg' : ''}`}
       role="meter"
       aria-valuemin={0}
       aria-valuemax={100}
@@ -98,7 +111,14 @@ export function PaceBar({ pace }: { pace: PaceResult }) {
 }
 
 export function PaceBadge({ status }: { status: PaceResult['status'] }) {
-  return <span className={`badge ${status}`}>{PACE_LABEL[status]}</span>;
+  return (
+    <span className={`badge ${status}`}>
+      <span className={`pace-emoji ${status}`} aria-hidden="true">
+        {PACE_EMOJI[status]}
+      </span>{' '}
+      {PACE_LABEL[status]}
+    </span>
+  );
 }
 
 export function CategoryDot({ category, size = 34 }: { category: Category; size?: number }) {

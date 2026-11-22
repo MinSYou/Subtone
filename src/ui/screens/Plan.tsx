@@ -84,8 +84,8 @@ function Budgets() {
       <button className="btn ghost block" onClick={() => setEdit({ categoryId: '', current: null })}>
         <Icon name="plus" size={18} /> Add a category limit
       </button>
-      <p className="muted small" style={{ margin: 0 }}>
-        "Spending fast" means your current day-to-day rate plus bills still due would finish the month over the limit. Limits apply every month.
+      <p className="muted small" style={{ margin: 0 }} title="Your current day-to-day rate plus bills still due would finish the month over the limit.">
+        ⚡ Spending fast = projected over limit
       </p>
       {edit && <BudgetSheet categoryId={edit.categoryId} current={edit.current} onClose={() => setEdit(null)} />}
     </>
@@ -227,14 +227,11 @@ function Goals() {
       <div className="card stack" style={{ gap: 6 }}>
         <div className="row between">
           <span className="muted small">Saved across goals</span>
-          <span className="muted small num">This month: {money(allocation.setAsideCents, { whole: true })} set aside</span>
         </div>
         <span className="num" style={{ fontSize: 26, fontWeight: 700 }}>{money(allocation.totalSavedCents, { whole: true })}</span>
         <div className="row between" style={{ borderTop: '1px solid var(--line-soft)', paddingTop: 8 }}>
-          <span className="small">
-            Unallocated surplus <strong className="num">{money(Math.max(0, allocation.unallocatedCents), { whole: true })}</strong>
-          </span>
-          <span className="muted small">not free to spend until you decide</span>
+          <span className="pill num">💰 {money(Math.max(0, allocation.unallocatedCents), { whole: true })} to save</span>
+          <span className="pill num">🐷 {money(allocation.setAsideCents, { whole: true })} this month</span>
         </div>
       </div>
 
@@ -244,7 +241,7 @@ function Goals() {
         <div className="card tight">
           {d.goals.map((g) => (
             <div className="list-row" key={g.goal.id} style={{ alignItems: 'flex-start', gap: 12, padding: '12px 14px' }}>
-              <GoalJar icon={g.goal.icon} color={g.goal.color} pct={g.pct} complete={g.complete} />
+              <GoalJar key={`${g.goal.id}-${g.savedCents}`} icon={g.goal.icon} color={g.goal.color} pct={g.pct} complete={g.complete} celebrate />
               <div className="grow stack" style={{ gap: 4 }}>
                 <button className="row between" style={{ background: 'none', border: 0, padding: 0, textAlign: 'left' }} onClick={() => setEditing(g.goal)}>
                   <span className="title">{g.goal.name}</span>
@@ -253,11 +250,14 @@ function Goals() {
                 <span className="num" style={{ fontWeight: 600 }}>
                   {money(g.savedCents, { whole: true })} <span className="muted small">of {money(g.goal.targetCents, { whole: true })}</span>
                 </span>
+                <div className="goal-bar" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(g.pct)} aria-label={`${g.goal.name} progress`}>
+                  <span style={{ width: `${Math.max(2, g.pct)}%`, background: g.goal.color }} />
+                </div>
                 <span className="sub num">
                   {g.complete
-                    ? 'Goal reached'
+                    ? '🎉 Goal reached'
                     : g.perMonthNeededCents
-                      ? `${money(g.perMonthNeededCents, { whole: true })}/mo to reach it by ${formatDayMonth(g.goal.targetDate!)}`
+                      ? `🎯 ${money(g.perMonthNeededCents, { whole: true })}/mo · by ${formatDayMonth(g.goal.targetDate!)}`
                       : `${money(g.remainingCents, { whole: true })} to go`}
                 </span>
                 <div className="row" style={{ marginTop: 2 }}>

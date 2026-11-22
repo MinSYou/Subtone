@@ -148,3 +148,75 @@ Every flaw found while testing, with where it was, what failed (actual output), 
 | `Date()` inside the view model | results depend on the day tests run | injected `Clock` |
 | `catch { // Error handling without print }` | silent data loss | `RepositoryError` → banner + retry (`store.test`) |
 | Trends always end at today | wrong chart for past months | `monthlySeries(…, endMonth)` (`trends.test`) |
+
+---
+
+# Round 2: UI de-clutter (branch `feat/ui-declutter`)
+
+Measured with Playwright at 390×844 @2x (Chromium, mobile emulation), sample data loaded, on the build before and after this round. Raw metrics are the "before" and "after" JSON below. Unit tests: **59 pass, 0 fail (151 assertions)**. Core `tsc`: **0 errors**. Console/page errors across all routes: **0**.
+
+| Check | Before | After |
+|---|---|---|
+| Bottom bar height (`.nav`, incl. 1px border) | 57px | **67px** (66px bar + border) + `env(safe-area-inset-bottom)` |
+| `+` button size | 46×46 | **44×44** |
+| `+` button clearance inside bar (top / bottom) | **1px** / 10px (it had `margin-top: -10px`) | **12px / 11px** |
+| Visible text on Home (`.screen` `innerText`, whitespace-collapsed) | 638 chars | **366 chars (−43%)** |
+| Sheet backdrop parent | `.app` (inside page tree) | **`<body>` via portal** |
+| Sheet backdrop colour | `rgba(23,24,28,0.45)` | `rgba(23,24,28,0.58)` + 2px blur |
+| Element at the header point (195, 40) with sheet open | `.backdrop` | `.backdrop` |
+
+### R2-1. `+` button nearly overflowed the bar
+- **File:** `src/ui/styles.css`, `.nav-inner`, `.nav .fab`, `--nav-h`
+- **Finding:** FAB top at y=788 vs bar top at y=787, so 1px clearance, caused by `margin-top: -10px` on a 56px bar.
+- **Change:**
+  ```diff
+  - --nav-h: 56px;
+  + --nav-h: 66px;
+  - .nav-inner { … padding: 0 4px; }
+  + .nav-inner { … padding: 8px 4px; box-sizing: border-box; }
+  - .nav .fab { width: 46px; height: 46px; border-radius: 23px; … margin-top: -10px; }
+  + .nav .fab { width: 44px; height: 44px; border-radius: 22px; … transition: transform .12s }
+  + .nav .fab:active { transform: scale(.92); }
+  ```
+
+### R2-2. Sheet backdrop lived inside the page tree and dimmed weakly
+- **File:** `src/ui/components/common.tsx` (`Sheet`), `src/ui/styles.css` (`.backdrop`)
+- **Finding:** Chromium did cover the full viewport, but the backdrop was a child of `.app`. Any future transform, filter or `will-change` on an ancestor (for example a slide-in screen transition) would turn `position: fixed` into "fixed to that ancestor", so the header would show through undimmed. At 45% opacity the header text (`< November 2026 >`) stayed crisp (before screenshot `sheet.png`).
+- **Change:** render through `createPortal(…, document.body)`. Make `#root` `inert` + `aria-hidden` while open. Lock scroll on `html` and `body`. Use explicit `top/right/bottom/left: 0` plus `inset: 0` and `min-height: 100dvh`, and raise `z-index` to 1000, with 58% dim and a 2px blur.
+  ```diff
+  - return (<div className="backdrop" …>…</div>);
+  + return createPortal(<div className="backdrop" …>…</div>, document.body);
+  + root?.setAttribute('inert', ''); root?.setAttribute('aria-hidden', 'true');
+  ```
+- **Related constraint:** the new screen-enter animation is **opacity-only** on purpose, so it can never create a containing block for fixed children (sheet, bulk bar).
+
+### R2-3. Text-heavy Home
+- **Files:** `src/ui/screens/Home.tsx`; `src/ui/components/visual.tsx` (new: emoji maps, `useCountUp`); `src/domain/types.ts` (`Insight.chip`, `Insight.categoryId`); `src/analytics/signals.ts`
+- **Before → after:**
+  - `"$3,401 of $4,500 (76%)" · "Day 22 of 30" · "$118/day safe to spend for 9 days ($34 of bills reserved)"` → pills `$118/day left` · `⏳ 9d left` · `$3,401 / $4,500`. The full sentence stays available as the pill's `title` and the card's `aria-label`.
+  - Signal cards (kind + title + sentence + link, about 4 lines each) → one-row chips: emoji, subject, bold metric, chevron (`🛍️ Shopping +261%`). The full text stays in Analytics → Signals.
+  - Pace badge gets an animated emoji: ✨ under, 🟢 on pace, ⚡ spending fast (pulse), 🔥 over (wiggle, then pulse).
+  - Net cashflow counts up on change (`useCountUp`, 450ms, off under reduced motion).
+- **Test added:** `signals › raises…` asserts `chip = { label: 'Eating Out', metric: '+65%' }`, `categoryId = 'eating-out'`, and that every insight has a non-empty chip.
+
+### R2-4. Duplicate Home chips for one category
+- **Found in:** first after-screenshot. Eating Out appeared twice, once from the spike and once from the category limit (`→ $505`, which was also unclear).
+- **Change:** Home de-dupes chips by `categoryId`, keeping the highest priority. The category-limit chip metric is now `82% used` or `+$X over`.
+
+### R2-5. Emoji that don't render everywhere
+- **Found in:** first after-screenshot. 🍽️ (U+1F37D + VS16) drew as a faint text glyph, and 🫙 (Unicode 14) is missing on older Android.
+- **Change:** 🍽️ → 🍔, 🫙 → 🐷 (both Unicode 6).
+
+### R2-6. Micro-animations (CSS only)
+- Pace and category bars grow on mount (`bar-grow`) and animate width on update; the pace marker fades in and slides.
+- Goal cards have an animated progress bar. The jar re-mounts and pops (`celebrate`) when a contribution changes the saved amount.
+- Tactile `:active` scale on buttons, chips, segments, category tiles and the FAB.
+- All motion is disabled by the existing `prefers-reduced-motion` rule.
+- **Decision:** CSS keyframes instead of Framer Motion, which avoids a ~40 KB dependency for effects CSS already covers.
+
+### Still not verified here
+These are the same as round 1, plus one new item:
+- `npm run build` with `@types/react`
+- Vitest itself
+- the real `@fontsource-variable/inter`
+- (new) on-device iOS PWA safe-area rendering

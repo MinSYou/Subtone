@@ -1,16 +1,32 @@
+import { PACE_LABEL } from '../../analytics';
 import { formatMonthLong } from '../../domain/dates';
-import { Empty, MonthSwitcher, PaceBadge, PaceBar, SignalCard, TxnRow } from '../components/common';
+import { Empty, MonthSwitcher, PaceBadge, PaceBar, TxnRow } from '../components/common';
 import { Icon } from '../components/Icon';
+import { insightEmoji, useCountUp } from '../components/visual';
 import { useDashboard, useMoney, useMonth, useStore, useStoreState } from '../context';
 
+/**
+ * Home is a glance screen: big numbers, one gauge, a few one-line chips. Explanations live in
+ * Analytics → Signals and Plan → Budgets, one tap away.
+ */
 export function Home({ navigate, onAdd, onEdit }: { navigate: (r: string) => void; onAdd: () => void; onEdit: (id: string) => void }) {
   const [month] = useMonth();
   const { data } = useStoreState();
   const store = useStore();
   const d = useDashboard(month);
   const money = useMoney();
-  const { overall } = d.pacing;
-  const recent = [...data.transactions].sort((a, b) => (a.date === b.date ? b.createdAt.localeCompare(a.createdAt) : a.date < b.date ? 1 : -1)).slice(0, 5);
+  const { overall, clock } = d.pacing;
+  const net = useCountUp(d.summary.netCents);
+  const recent = [...data.transactions].sort((a, b) => (a.date === b.date ? b.createdAt.localeCompare(a.createdAt) : a.date < b.date ? 1 : -1)).slice(0, 4);
+  const w = (c: number) => money(c, { whole: true });
+  // One chip per subject: a category with both a spike and a limit warning shows once (highest priority).
+  const seen = new Set<string>();
+  const chips = d.signals.filter((s) => {
+    const key = s.categoryId ?? s.id;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
 
   return (
     <div className="screen">
@@ -22,7 +38,7 @@ export function Home({ navigate, onAdd, onEdit }: { navigate: (r: string) => voi
       </header>
 
       {data.transactions.length === 0 ? (
-        <Empty title="No transactions yet" body="Add your first expense or income, or explore with sample data. Everything stays on this device.">
+        <Empty title="👋 Start tracking" body="Add a transaction or try sample data. Stays on this device.">
           <div className="row wrap" style={{ justifyContent: 'center' }}>
             <button className="btn primary" onClick={onAdd}>
               Add transaction
@@ -35,84 +51,87 @@ export function Home({ navigate, onAdd, onEdit }: { navigate: (r: string) => voi
       ) : (
         <>
           <section className="hero" aria-label={`Cashflow for ${formatMonthLong(month)}`}>
-            <span className="label">Net cashflow</span>
-            <span className="big num">{money(d.summary.netCents, { whole: true, signed: true })}</span>
+            <div className="top">
+              <div className="stack" style={{ gap: 0 }}>
+                <span className="label">Net cashflow</span>
+                <span className="big num">{money(net, { whole: true, signed: true })}</span>
+              </div>
+              {d.allocation.unallocatedCents > 0 && (
+                <a className="save-pill num" href="#/plan/goals" aria-label={`${w(d.allocation.unallocatedCents)} unallocated, set it aside in a goal`}>
+                  💰 {w(d.allocation.unallocatedCents)} to save
+                </a>
+              )}
+            </div>
             <div className="hero-grid">
               <div className="hero-cell">
-                <span className="label">Income</span>
-                <span className="v num" style={{ color: '#7fe0d6' }}>{money(d.summary.incomeCents, { whole: true })}</span>
+                <span className="label">↓ In</span>
+                <span className="v num" style={{ color: '#7fe0d6' }}>{w(d.summary.incomeCents)}</span>
               </div>
               <div className="hero-cell">
-                <span className="label">Spent</span>
-                <span className="v num">{money(d.summary.expenseCents, { whole: true })}</span>
+                <span className="label">↑ Out</span>
+                <span className="v num">{w(d.summary.expenseCents)}</span>
               </div>
               <a className="hero-cell" href="#/plan/goals" style={{ color: '#fff', textDecoration: 'none' }}>
-                <span className="label">Set aside</span>
-                <span className="v num">{money(d.allocation.setAsideCents, { whole: true })}</span>
+                <span className="label">🐷 Saved</span>
+                <span className="v num">{w(d.allocation.setAsideCents)}</span>
               </a>
             </div>
-            {d.allocation.unallocatedCents > 0 && (
-              <a href="#/plan/goals" className="label num" style={{ color: '#c9cbd2' }}>
-                {money(d.allocation.unallocatedCents, { whole: true })} unallocated — ring-fence it in a goal →
-              </a>
-            )}
           </section>
 
-          <a href="#/plan/budgets" className="card stack" style={{ textDecoration: 'none', color: 'inherit', gap: 8 }}>
+          <a href="#/plan/budgets" className="card stack" style={{ textDecoration: 'none', color: 'inherit', gap: 10 }} aria-label={`Budget pace: ${PACE_LABEL[overall.status]}. Open budgets.`}>
             <div className="row between">
               <strong style={{ fontSize: 15 }}>Budget pace</strong>
               <PaceBadge status={overall.status} />
             </div>
             {overall.limitCents === null ? (
-              <span className="muted small">Set a monthly budget to see pacing and a safe-to-spend figure.</span>
+              <div className="pills">
+                <span className="pill">➕ Set a monthly budget</span>
+              </div>
             ) : (
               <>
-                <PaceBar pace={overall} />
-                <div className="row between small muted num">
-                  <span>
-                    {money(overall.spentCents, { whole: true })} of {money(overall.limitCents, { whole: true })} ({Math.round(overall.spentPct)}%)
-                  </span>
-                  {d.pacing.clock.isCurrent && (
-                    <span>
-                      Day {d.pacing.clock.daysElapsed} of {d.pacing.clock.daysInMonth}
+                <PaceBar pace={overall} large />
+                <div className="pills num">
+                  {clock.isCurrent && overall.safePerDayCents !== null && (
+                    <span className="pill strong" title="Safe to spend per day, bills already reserved">
+                      {w(overall.safePerDayCents)}/day left
                     </span>
                   )}
+                  {clock.isCurrent && <span className="pill">⏳ {clock.daysLeft}d left</span>}
+                  <span className="pill">
+                    {w(overall.spentCents)} <span className="k">/ {w(overall.limitCents)}</span>
+                  </span>
                 </div>
-                {d.pacing.clock.isCurrent && overall.safePerDayCents !== null && (
-                  <div className="row" style={{ borderTop: '1px solid var(--line-soft)', paddingTop: 8, alignItems: 'baseline' }}>
-                    <span className="num" style={{ fontSize: 20, fontWeight: 650 }}>
-                      {money(overall.safePerDayCents, { whole: true })}/day
-                    </span>
-                    <span className="muted small num">
-                      safe to spend for {d.pacing.clock.daysLeft} days
-                      {overall.committedCents > 0 ? ` (${money(overall.committedCents, { whole: true })} of bills reserved)` : ''}
-                    </span>
-                  </div>
-                )}
               </>
             )}
           </a>
 
           {d.signals.length > 0 && (
-            <>
+            <section className="stack" style={{ gap: 6 }} aria-label="Signals">
               <h2 className="section-title">
                 Signals
                 <a href="#/analytics/signals" style={{ fontSize: 13, fontWeight: 500 }}>
-                  See all {d.signals.length}
+                  All {d.signals.length}
                 </a>
               </h2>
-              <div className="stack">
-                {d.signals.slice(0, 2).map((s) => (
-                  <SignalCard key={s.id} insight={s} onAction={navigate} />
-                ))}
-              </div>
-            </>
+              {chips.slice(0, 3).map((s) => (
+                <button key={s.id} className={`alert-chip ${s.severity}`} onClick={() => navigate('analytics/signals')} aria-label={`${s.title}. Open signals.`}>
+                  <span className="emo" aria-hidden="true">
+                    {insightEmoji(s)}
+                  </span>
+                  <span className="lbl">{s.chip.label}</span>
+                  <span className="met num">{s.chip.metric}</span>
+                  <span className="chev">
+                    <Icon name="chevronRight" size={16} />
+                  </span>
+                </button>
+              ))}
+            </section>
           )}
 
           <h2 className="section-title">
             Recent
             <a href="#/activity/transactions" style={{ fontSize: 13, fontWeight: 500 }}>
-              All activity
+              All
             </a>
           </h2>
           <div className="card tight">
