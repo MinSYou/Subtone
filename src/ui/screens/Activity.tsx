@@ -105,20 +105,24 @@ function Transactions({ onEdit }: { onEdit: (id: string) => void }) {
         >
           This month
         </button>
-        <button className="chip" aria-pressed={selecting} onClick={() => (selecting ? endSelect() : setSelecting(true))}>
-          {selecting ? 'Done' : 'Select'}
-        </button>
       </div>
 
       <div className="row between small muted num">
         <span>
           {results.length} transaction{results.length === 1 ? '' : 's'}
         </span>
-        {selecting && (
-          <button className="link-btn" onClick={() => setSelected(selected.size === results.length ? new Set() : new Set(results.map((t) => t.id)))}>
-            {selected.size === results.length ? 'Clear selection' : 'Select all shown'}
-          </button>
-        )}
+        <span className="row" style={{ gap: 12 }}>
+          {selecting && (
+            <button className="link-btn" onClick={() => setSelected(selected.size === results.length ? new Set() : new Set(results.map((t) => t.id)))}>
+              {selected.size === results.length ? 'Clear' : 'Select all shown'}
+            </button>
+          )}
+          {results.length > 0 && (
+            <button className="link-btn" aria-pressed={selecting} onClick={() => (selecting ? endSelect() : setSelecting(true))}>
+              {selecting ? 'Done' : 'Select'}
+            </button>
+          )}
+        </span>
       </div>
 
       {data.transactions.length === 0 ? (

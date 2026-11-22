@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { formatMonthLong } from '../../domain/dates';
+import { trimLeadingEmpty } from '../../analytics';
 import { CompositionStrip, Donut, IncomeSpendBars, IncomeSpendLines } from '../components/charts';
 import { CategoryDot, Empty, MonthSwitcher, Segmented, SignalCard } from '../components/common';
 import { Icon } from '../components/Icon';
@@ -127,7 +128,8 @@ function Trends() {
   const { data } = useStoreState();
   const chart = data.settings.chartPrefs.trends;
   const { overall, clock } = d.pacing;
-  const projected = clock.isCurrent ? { index: d.series.length - 1, expenseCents: overall.projectedCents } : null;
+  const series = trimLeadingEmpty(d.series);
+  const projected = clock.isCurrent ? { index: series.length - 1, expenseCents: overall.projectedCents } : null;
   const fmt = (c: number) => money(c, { whole: true });
 
   return (
@@ -150,9 +152,9 @@ function Trends() {
           />
         </div>
         {chart === 'line' ? (
-          <IncomeSpendLines series={d.series} budgetCents={overall.limitCents} projected={projected} format={fmt} />
+          <IncomeSpendLines series={series} budgetCents={overall.limitCents} projected={projected} format={fmt} />
         ) : (
-          <IncomeSpendBars series={d.series} budgetCents={overall.limitCents} projected={projected} format={fmt} />
+          <IncomeSpendBars series={series} budgetCents={overall.limitCents} projected={projected} format={fmt} />
         )}
         {projected && (
           <div className="stack" style={{ gap: 2, borderTop: '1px solid var(--line-soft)', paddingTop: 8 }}>

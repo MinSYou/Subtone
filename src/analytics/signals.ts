@@ -107,7 +107,11 @@ export function generateSignals(ctx: SignalContext): Insight[] {
           priority: 60 + Math.min(20, Math.round(m.deltaPct! / 10)),
           title: `${m.category.name} is up ${Math.round(m.deltaPct!)}% vs last month`,
           detail: `${money(m.currentCents)} so far vs ${money(m.previousCents)} over the same days last month.`,
-          action: { label: `Set a ${m.category.name} limit`, route: 'plan/budgets', targetId: m.category.id },
+          action: {
+            label: pacing.categories.some((c) => c.categoryId === m.category.id) ? `Review ${m.category.name} limit` : `Set a limit for ${m.category.name}`,
+            route: 'plan/budgets',
+            targetId: m.category.id,
+          },
         });
       });
   }

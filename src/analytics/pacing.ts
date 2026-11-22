@@ -64,6 +64,12 @@ export interface PaceResult {
   dailyRateCents: Cents;
   /** Amount per remaining day that keeps you within the limit after commitments. */
   safePerDayCents: Cents | null;
+  /**
+   * Where spending "should" be today, as % of the limit: fixed costs already paid count in full
+   * (rent lands on the 1st), the rest of the limit is spread evenly over the month. Drawn as the
+   * pace marker so the bar and the status badge agree. null outside the current month.
+   */
+  idealPct: number | null;
   status: PaceStatus;
 }
 
@@ -111,6 +117,10 @@ function pace(snapshot: FinanceSnapshot, clock: MonthClock, today: ISODate, scop
     limit === null || clock.daysLeft === 0
       ? null
       : Math.max(0, Math.floor((limit - spent - committed) / clock.daysLeft));
+  const idealPct =
+    limit === null || !clock.isCurrent
+      ? null
+      : percent(fixed + Math.max(0, limit - fixed - committed) * (clock.daysElapsed / clock.daysInMonth), limit);
   return {
     categoryId: scope.categoryId,
     label: scope.label,
@@ -122,6 +132,7 @@ function pace(snapshot: FinanceSnapshot, clock: MonthClock, today: ISODate, scop
     projectedCents: clock.daysElapsed === 0 ? spent + committed : projected,
     dailyRateCents: Math.round(dailyRate),
     safePerDayCents: safe,
+    idealPct,
     status: statusFor(limit, spent, clock.isCurrent ? projected : spent),
   };
 }

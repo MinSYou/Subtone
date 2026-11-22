@@ -6,7 +6,7 @@ import { allocation, goalProgress } from './goals';
 import { computePacing, monthClock, PACE_LABEL } from './pacing';
 import { monthlyEquivalent, occurrencesBetween, pendingCommitments, summariseRecurring } from './recurring';
 import { generateSignals } from './signals';
-import { categoryMovers, comparisonPeriods, monthlySeries } from './trends';
+import { categoryMovers, comparisonPeriods, monthlySeries, trimLeadingEmpty } from './trends';
 
 const TODAY = '2026-11-22';
 
@@ -106,6 +106,9 @@ describe('pacing', () => {
     // (4500 − 3916 − 18.99) / 9 days left including today
     expect(overall.safePerDayCents).toBe(62_77);
     expect(overall.status).toBe('fast');
+    // pace marker: 1800 fixed + (4500 − 1800 − 18.99) × 22/30 = 3766.07 → 83.7% of the limit
+    expect(overall.idealPct).toBeCloseTo(83.69, 1);
+    expect(overall.spentPct).toBeGreaterThan(overall.idealPct!);
     expect(PACE_LABEL[overall.status]).toBe('Spending fast');
   });
 
@@ -145,6 +148,8 @@ describe('trends', () => {
     const s = monthlySeries([txn('2026-05-03', 'groceries', 10_00)], '2026-06', 6);
     expect(s.map((p) => p.month)).toEqual(['2026-01', '2026-02', '2026-03', '2026-04', '2026-05', '2026-06']);
     expect(s[4].expenseCents).toBe(10_00);
+    expect(trimLeadingEmpty(s).map((p) => p.month)).toEqual(['2026-05', '2026-06']);
+    expect(trimLeadingEmpty(monthlySeries([], '2026-06', 6))).toHaveLength(1);
   });
 
   it('ranks movers by absolute change', () => {

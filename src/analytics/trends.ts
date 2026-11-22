@@ -104,3 +104,9 @@ export function categoryMovers(
 export function monthsOfHistory(transactions: Transaction[], month: MonthKey): number {
   return new Set(transactions.map((t) => monthKey(t.date)).filter((m) => m < month)).size;
 }
+
+/** Drop months before the first recorded activity so charts don't plot "no data" as $0. */
+export function trimLeadingEmpty(series: MonthPoint[]): MonthPoint[] {
+  const first = series.findIndex((p) => p.incomeCents !== 0 || p.expenseCents !== 0);
+  return first === -1 ? series.slice(-1) : series.slice(first);
+}

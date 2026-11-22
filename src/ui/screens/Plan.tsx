@@ -56,10 +56,10 @@ function Budgets() {
       {clock.isCurrent && (
         <div className="row between small muted num">
           <span>
-            Pace line: {Math.round(clock.elapsedPct)}% (day {clock.daysElapsed} of {clock.daysInMonth})
+            Day {clock.daysElapsed} of {clock.daysInMonth}
           </span>
           <span className="row" style={{ gap: 4 }}>
-            <span style={{ width: 2, height: 12, background: 'var(--ink)', display: 'inline-block' }} /> today
+            <span style={{ width: 2, height: 12, background: 'var(--ink)', display: 'inline-block' }} /> where you should be today
           </span>
         </div>
       )}
@@ -76,7 +76,7 @@ function Budgets() {
                 <PaceBadge status={p.status} />
               </span>
             </div>
-            {p.limitCents !== null && <PaceBar pace={p} elapsedPct={clock.isCurrent ? clock.elapsedPct : null} />}
+            {p.limitCents !== null && <PaceBar pace={p} />}
             <span className="sub num">{stateLine(p)}</span>
           </button>
         ))}
@@ -158,7 +158,7 @@ function Afford() {
     <>
       <div className="card stack" style={{ gap: 10 }}>
         <label className="field">
-          <span className="lbl">Planned purchase</span>
+          <span className="lbl">Planned purchase ({data.settings.currency})</span>
           <input className="amount-input num" inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value)} aria-label="Amount" placeholder="0" />
         </label>
         <div className="chips" role="group" aria-label="Preset amounts">

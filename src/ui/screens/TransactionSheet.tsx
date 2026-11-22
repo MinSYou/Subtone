@@ -84,6 +84,16 @@ export function TransactionSheet({ editId, onClose }: { editId: string | null; o
         <input className="input" value={title} onChange={(e) => setTitle(e.target.value)} placeholder={type === 'expense' ? 'e.g. Dinner — Chat Thai' : 'e.g. Freelance invoice'} />
       </label>
       <CategoryPicker type={type} value={categoryId} onChange={setCategoryId} />
+      {impact && (
+        <div className="row" style={{ alignItems: 'flex-start', background: 'var(--ground)', borderRadius: 12, padding: 10 }} aria-live="polite">
+          <span style={{ color: impact.verdict === 'comfortable' ? 'var(--good)' : 'var(--warn)' }}>
+            <Icon name={impact.verdict === 'comfortable' ? 'check' : 'alert'} size={18} />
+          </span>
+          <span className="small num" style={{ color: '#3a3d44' }}>
+            {impact.headline}. {impact.advice}
+          </span>
+        </div>
+      )}
       <div className="row">
         <label className="field grow">
           <span className="lbl">Date</span>
@@ -111,16 +121,6 @@ export function TransactionSheet({ editId, onClose }: { editId: string | null; o
         <textarea className="input" value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} />
       </label>
 
-      {impact && (
-        <div className="row" style={{ alignItems: 'flex-start', background: 'var(--ground)', borderRadius: 12, padding: 10 }} aria-live="polite">
-          <span style={{ color: impact.verdict === 'comfortable' ? 'var(--good)' : 'var(--warn)' }}>
-            <Icon name={impact.verdict === 'comfortable' ? 'check' : 'alert'} size={18} />
-          </span>
-          <span className="small num" style={{ color: '#3a3d44' }}>
-            {impact.headline}. {impact.advice}
-          </span>
-        </div>
-      )}
 
       <div className="row">
         {existing && (

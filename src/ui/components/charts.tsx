@@ -67,8 +67,7 @@ function BudgetLine({ y, W, label }: { y: number; W: number; label: string }) {
   return (
     <g>
       <line x1={0} x2={W} y1={y} y2={y} stroke="#5b5f68" strokeDasharray="4 4" />
-      <rect x={W - 96} y={y - 16} width={96} height={14} fill="#fff" />
-      <text x={W} y={y - 5} textAnchor="end" fontSize="11" fill="#5b5f68">
+      <text x={2} y={y - 5} textAnchor="start" fontSize="11" fill="#5b5f68" stroke="#fff" strokeWidth={3} paintOrder="stroke">
         {label}
       </text>
     </g>

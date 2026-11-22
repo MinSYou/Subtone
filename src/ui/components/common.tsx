@@ -79,7 +79,8 @@ export function Sheet({ title, onClose, children }: { title: string; onClose: ()
   );
 }
 
-export function PaceBar({ pace, elapsedPct }: { pace: PaceResult; elapsedPct: number | null }) {
+export function PaceBar({ pace }: { pace: PaceResult }) {
+  const marker = pace.idealPct;
   const pct = pace.limitCents ? Math.min(100, pace.spentPct) : 0;
   return (
     <div
@@ -91,7 +92,7 @@ export function PaceBar({ pace, elapsedPct }: { pace: PaceResult; elapsedPct: nu
       aria-label={`${pace.label}: ${Math.round(pace.spentPct)}% of limit used, ${PACE_LABEL[pace.status]}`}
     >
       <div className={`fill ${pace.status}`} style={{ width: `${pct}%` }} />
-      {elapsedPct !== null && elapsedPct > 0 && elapsedPct < 100 && <div className="pace" style={{ left: `${elapsedPct}%` }} />}
+      {marker !== null && marker > 0 && marker < 100 && <div className="pace" style={{ left: `${marker}%` }} title="Where spending should be today" />}
     </div>
   );
 }

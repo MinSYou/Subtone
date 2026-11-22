@@ -67,7 +67,7 @@ export function Home({ navigate, onAdd, onEdit }: { navigate: (r: string) => voi
               <span className="muted small">Set a monthly budget to see pacing and a safe-to-spend figure.</span>
             ) : (
               <>
-                <PaceBar pace={overall} elapsedPct={d.pacing.clock.isCurrent ? d.pacing.clock.elapsedPct : null} />
+                <PaceBar pace={overall} />
                 <div className="row between small muted num">
                   <span>
                     {money(overall.spentCents, { whole: true })} of {money(overall.limitCents, { whole: true })} ({Math.round(overall.spentPct)}%)
